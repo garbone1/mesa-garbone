@@ -26,7 +26,8 @@ button{cursor:pointer}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 kbd{font-family:var(--f-mono);font-size:11px;padding:1px 5px;border-radius:4px;border:1px solid var(--line);background:var(--bg);color:var(--dim)}
 
-.top{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;justify-content:space-between;margin-bottom:16px}
+.top{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;justify-content:space-between;margin-bottom:16px;position:sticky;top:env(safe-area-inset-top,0px);z-index:6;background:var(--bg);padding-block:10px;border-bottom:1px solid var(--line)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
 .brand{display:flex;gap:12px;align-items:center}
 .logo{width:44px;height:44px;display:grid;place-items:center;border-radius:10px;background:var(--accent);color:var(--bg);font-family:var(--f-display);font-weight:700;font-size:18px}
 .brand h1{font-size:24px;line-height:1.1}
@@ -200,7 +201,7 @@ select{background:var(--bg);border:1px solid var(--line);border-radius:7px;paddi
         <h2 id="voiceT">Voz e efeitos</h2>
         <button id="micBtn" class="btn primary" type="button">Ligar microfone</button>
       </div>
-      <p id="micMsg" class="note">A voz passa pelos ajustes abaixo e sai no canal Voz do mixer. Use fone de ouvido para não dar microfonia.</p>
+      <p id="micMsg" class="note">Em "Sem efeito", a Mesa não mexe na voz e o OBS usa o seu microfone normal. Escolha um efeito para a voz passar pela Mesa.</p>
       <div id="fxGrid" class="fx" role="group" aria-label="Efeito de voz"></div>
       <div id="voiceCtl" style="display:grid;gap:6px"></div>
       <label class="check"><input type="checkbox" id="ns"> Redução de ruído do navegador (ventilador, teclado)</label>
@@ -233,7 +234,7 @@ select{background:var(--bg);border:1px solid var(--line);border-radius:7px;paddi
       <h3>Atalhos (PC)</h3>
       <div class="keys">
         <span><kbd>1</kbd>…<kbd>P</kbd></span><span>tocar pads</span>
-        <span><kbd>A</kbd>…<kbd>J</kbd></span><span>trocar efeito de voz</span>
+        <span><kbd>A</kbd>…<kbd>K</kbd></span><span>trocar efeito de voz (A = sem efeito)</span>
         <span><kbd>Espaço</kbd></span><span>mutar/desmutar a voz</span>
         <span><kbd>Esc</kbd></span><span>parar todos os sons</span>
       </div>
@@ -257,6 +258,7 @@ select{background:var(--bg);border:1px solid var(--line);border-radius:7px;paddi
       <div class="head">
         <h2 id="stT">Estúdio de vinheta</h2>
         <div class="row">
+          <label class="check" style="font-size:13px"><input type="checkbox" id="seqLoop"> Repetir</label>
           <button id="seqPlay" class="btn primary" type="button">▶ Ouvir</button>
           <button id="seqClear" class="btn sm" type="button">Limpar</button>
         </div>
@@ -436,7 +438,8 @@ const ch = {
   sons: store.get('ch.sons', { v: 80, m: false }),
   master: store.get('ch.master', { v: 100, m: false }),
 };
-const vs = Object.assign({ gain: 100, low: 2, high: 3, gate: -80, comp: 40, ns: true, fx: 'normal' }, store.get('voice', {}));
+const vs = Object.assign({ gain: 100, low: 2, high: 3, gate: -80, comp: 40, ns: true, fx: 'obs' }, store.get('voice', {}));
+if (!store.get('fxv2', false)) { vs.fx = 'obs'; store.set('fxv2', true); }
 const gainOf = c => c.m ? 0 : Math.pow(c.v / 100, 2);
 
 const PITCH_SRC = `class P extends AudioWorkletProcessor{static get parameterDescriptors(){return[{name:'ratio',defaultValue:1,minValue:.25,maxValue:4}]}
@@ -488,8 +491,8 @@ function applyVoice() {
 
 /* ---------- Efeitos de voz ---------- */
 const FX = [
-  { id: 'normal', name: 'Normal', key: 'A' }, { id: 'grave', name: 'Voz grossa', key: 'S' }, { id: 'fina', name: 'Esquilo', key: 'D' },
-  { id: 'robo', name: 'Robô', key: 'F' }, { id: 'radio', name: 'Rádio da polícia', key: 'G' }, { id: 'eco', name: 'Eco', key: 'H' }, { id: 'caverna', name: 'Caverna', key: 'J' },
+  { id: 'obs', name: 'Sem efeito (voz do OBS)', key: 'A' }, { id: 'normal', name: 'Normal', key: 'S' }, { id: 'grave', name: 'Voz grossa', key: 'D' },
+  { id: 'fina', name: 'Esquilo', key: 'F' }, { id: 'robo', name: 'Robô', key: 'G' }, { id: 'radio', name: 'Rádio da polícia', key: 'H' }, { id: 'eco', name: 'Eco', key: 'J' }, { id: 'caverna', name: 'Caverna', key: 'K' },
 ];
 let fxNodes = [];
 function impulse(sec = 2.6) { const len = ctx.sampleRate * sec, b = ctx.createBuffer(2, len, ctx.sampleRate); for (let c = 0; c < 2; c++) { const d = b.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3); } return b; }
@@ -538,9 +541,18 @@ function setFx(id) {
     I.connect(O);
   }
 }
+async function chooseFx(id) {
+  ensureCtx(); setFx(id);
+  if (id === 'obs') {
+    if (micStream) micOff(true);
+    micMsg('Sem efeito: a Mesa não mexe na sua voz. Deixe o microfone ligado no OBS normalmente.', false);
+  } else if (!micStream) {
+    if (await micOn()) micMsg('Efeito "' + FX.find(f => f.id === id).name + '" ligado. Desligue o microfone no OBS para a voz não sair duplicada.', true);
+  }
+}
 function renderFxButtons() {
   const g = $('#fxGrid'); if (!g.children.length) {
-    FX.forEach(f => g.append(el('button', { type: 'button', 'data-fx': f.id, onclick: () => { ensureCtx(); setFx(f.id); } }, [el('span', { text: f.name }), el('kbd', { text: f.key })])));
+    FX.forEach(f => g.append(el('button', { type: 'button', 'data-fx': f.id, onclick: () => chooseFx(f.id) }, [el('span', { text: f.name }), el('kbd', { text: f.key })])));
   }
   g.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.fx === vs.fx));
 }
@@ -558,13 +570,15 @@ async function micOn() {
     updateMicBtn(); return false;
   }
   micSrc = ctx.createMediaStreamSource(micStream); micSrc.connect(N.vIn);
-  micMsg('Microfone ligado. Use fone de ouvido para não dar microfonia.', false);
+  if (vs.fx === 'obs') setFx('normal');
+  micMsg('Microfone ligado na Mesa. Desligue o microfone no OBS para a voz não sair duplicada. Use fone de ouvido.', true);
   updateMicBtn(); updateEngine(); listOutputs(); return true;
 }
-function micOff() {
+function micOff(quiet) {
   if (micSrc) { try { micSrc.disconnect(); } catch (e) {} micSrc = null; }
   if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
-  micMsg('Microfone desligado.', false); updateMicBtn(); updateEngine();
+  if (!quiet) { micMsg('Microfone desligado na Mesa. A voz fica só no OBS.', false); setFx('obs'); }
+  updateMicBtn(); updateEngine();
 }
 function micMsg(t, warn) { const m = $('#micMsg'); m.textContent = t; m.classList.toggle('warn', !!warn); }
 function updateMicBtn() { const b = $('#micBtn'); b.textContent = micStream ? 'Desligar microfone' : 'Ligar microfone'; b.className = 'btn ' + (micStream ? 'live' : 'primary'); }
@@ -750,17 +764,27 @@ $('#bpm').onchange = e => { seqState.bpm = Math.max(60, Math.min(200, +e.target.
 $('#inst').onchange = e => { seqState.inst = e.target.value; saveSeq(); };
 $('#seqName').oninput = e => { seqState.name = e.target.value; saveSeq(); };
 $('#seqClear').onclick = () => { seqState.grid = ROWS.map(() => Array(16).fill(false)); ROWS.forEach((_, i) => { for (let k = 0; k < 16; k++) paintCell(i, k); }); saveSeq(); };
-let seqTimer = null, seqNext = 0, seqStepN = 0, lastNow = -1;
+let seqTimer = null, seqNext = 0, seqStepN = 0, lastNow = -1, seqBus = null, seqCount = 0, seqEndT = null;
+const loopBox = $('#seqLoop'); loopBox.checked = !!seqState.loop; loopBox.onchange = () => { seqState.loop = loopBox.checked; saveSeq(); };
 const nowQueue = [];
 function seqStart() {
-  if (!ensureCtx()) return; seqNext = ctx.currentTime + .06; seqStepN = 0;
+  if (!ensureCtx()) return; seqNext = ctx.currentTime + .06; seqStepN = 0; seqCount = 0;
+  seqBus = ctx.createGain(); seqBus.connect(N.sons);
   seqTimer = setInterval(() => {
     const sd = 60 / seqState.bpm / 4;
-    while (seqNext < ctx.currentTime + .12) { playStep(ctx, N.sons, seqNext, seqStepN, sd); nowQueue.push({ t: seqNext, s: seqStepN }); seqNext += sd; seqStepN = (seqStepN + 1) % 16; }
+    while (seqTimer && seqNext < ctx.currentTime + .12) {
+      if (!seqState.loop && seqCount >= 16) {
+        clearInterval(seqTimer); seqTimer = 'ending';
+        seqEndT = setTimeout(seqStop, (seqNext - ctx.currentTime) * 1000 + 900); return;
+      }
+      playStep(ctx, seqBus, seqNext, seqStepN, sd); nowQueue.push({ t: seqNext, s: seqStepN }); seqNext += sd; seqStepN = (seqStepN + 1) % 16; seqCount++;
+    }
   }, 25);
   $('#seqPlay').textContent = '■ Parar';
 }
-function seqStop() { clearInterval(seqTimer); seqTimer = null; nowQueue.length = 0; paintNow(-1); $('#seqPlay').textContent = '▶ Ouvir'; }
+function seqStop() {
+  if (seqTimer && seqTimer !== 'ending') clearInterval(seqTimer); seqTimer = null; clearTimeout(seqEndT);
+  if (seqBus) { const b = seqBus; seqBus = null; try { b.gain.setTargetAtTime(0, ctx.currentTime, .015); setTimeout(() => { try { b.disconnect(); } catch (e) {} }, 200); } catch (e) {} } nowQueue.length = 0; paintNow(-1); $('#seqPlay').textContent = '▶ Ouvir'; }
 function paintNow(s) { if (s === lastNow) return; cells.forEach(row => { if (lastNow >= 0) row[lastNow].classList.remove('now'); if (s >= 0) row[s].classList.add('now'); }); lastNow = s; }
 $('#seqPlay').onclick = () => seqTimer ? seqStop() : seqStart();
 $('#seqSave').onclick = async () => {
@@ -802,7 +826,7 @@ document.addEventListener('keydown', e => {
   const k = e.key.toUpperCase();
   if (e.code === 'Space') { e.preventDefault(); ensureCtx(); toggleVoiceMute(); return; }
   const pi = KEYS.indexOf(k); if (pi >= 0 && pads[pi] && k.length === 1) { e.preventDefault(); playPad(pads[pi]); return; }
-  const fx = FX.find(f => f.key === k); if (fx) { e.preventDefault(); ensureCtx(); setFx(fx.id); toast('Efeito: ' + fx.name); }
+  const fx = FX.find(f => f.key === k); if (fx) { e.preventDefault(); chooseFx(fx.id); toast('Efeito: ' + fx.name); }
 });
 
 /* ---------- Salvos: cenas do mixer, presets de voz, vinhetas ---------- */
@@ -815,7 +839,7 @@ async function syncVoiceUI(prevNs) {
   nsBox.checked = vs.ns; store.set('voice', vs); applyVoice(); setFx(vs.fx);
   if (micStream && prevNs !== vs.ns) { micOff(); await micOn(); }
 }
-function syncSeqUI() { ROWS.forEach((_, i) => { for (let k = 0; k < 16; k++) paintCell(i, k); }); $('#bpm').value = seqState.bpm; $('#inst').value = seqState.inst; $('#seqName').value = seqState.name; saveSeq(); }
+function syncSeqUI() { loopBox.checked = !!seqState.loop; ROWS.forEach((_, i) => { for (let k = 0; k < 16; k++) paintCell(i, k); }); $('#bpm').value = seqState.bpm; $('#inst').value = seqState.inst; $('#seqName').value = seqState.name; saveSeq(); }
 const KINDS = {
   mix: { title: 'Cenas do mixer', ph: 'Nome da cena (ex.: Live de GTA)', def: 'Cena',
     get: () => clone({ voz: ch.voz, sons: ch.sons, master: ch.master }),
@@ -824,7 +848,7 @@ const KINDS = {
     get: () => clone(vs),
     apply: s => { const prev = vs.ns; Object.assign(vs, clone(s)); syncVoiceUI(prev); } },
   vinheta: { title: 'Vinhetas salvas', ph: 'Nome da vinheta', def: 'Vinheta', btn: 'Salvar vinheta',
-    get: () => clone({ bpm: seqState.bpm, inst: seqState.inst, name: seqState.name, grid: seqState.grid }),
+    get: () => clone({ bpm: seqState.bpm, inst: seqState.inst, name: seqState.name, grid: seqState.grid, loop: !!seqState.loop }),
     apply: s => { if (seqTimer) seqStop(); Object.assign(seqState, clone(s)); syncSeqUI(); } },
 };
 const current = {};
@@ -967,7 +991,7 @@ function onRemoteMsg(d) {
   if (!d || typeof d !== 'object') return;
   if (d.t === 'play') { const p = pads.find(x => x.id === d.id); if (p) playPad(p); }
   else if (d.t === 'stopall') stopAll();
-  else if (d.t === 'fx' && FX.some(f => f.id === d.id)) { ensureCtx(); setFx(d.id); }
+  else if (d.t === 'fx' && FX.some(f => f.id === d.id)) { chooseFx(d.id); }
   else if (d.t === 'ch' && ch[d.k]) {
     if (typeof d.v === 'number') ch[d.k].v = Math.max(0, Math.min(150, Math.round(d.v)));
     if (typeof d.m === 'boolean') ch[d.k].m = d.m;
