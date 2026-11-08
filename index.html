@@ -49,10 +49,10 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .col{display:flex;flex-direction:column;gap:16px;min-width:0}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:14px;min-width:0}
 .head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
-@media (max-width:860px){
+@media (max-width:1100px){
   .grid{display:flex;flex-direction:column;align-items:stretch}
   .col{display:contents}
-  .mixer{order:1}.remote{order:2}.pads{order:2}.voice{order:3}.studio{order:4}.backup{order:5}.help{order:6}
+  .mixer{order:1}.output{order:2}.remote{order:2}.pads{order:2}.voice{order:3}.studio{order:4}.backup{order:5}.help{order:6}
 }
 
 /* Canais */
@@ -65,7 +65,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .quick{grid-column:1/-1;display:flex;gap:6px;flex-wrap:wrap}
 .quick button{flex:1;min-width:44px;min-height:34px;border:1px solid var(--line);background:var(--panel2);border-radius:7px;font-family:var(--f-mono);font-size:12px}
 .quick button.mute{flex:1.4}
-.quick button.mute[aria-pressed="true"]{background:var(--hot);border-color:var(--hot);color:#fff}
+#monMute[aria-pressed="true"],.quick button.mute[aria-pressed="true"]{background:var(--hot);border-color:var(--hot);color:#fff}
 
 input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:28px;background:transparent}
 input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:var(--line)}
@@ -174,6 +174,32 @@ select{background:var(--bg);border:1px solid var(--line);border-radius:7px;paddi
       <div id="channels"></div>
       <div class="saver" data-kind="mix"></div>
     </section>
+    <section class="card output" aria-labelledby="outT">
+      <h2 id="outT">Saída e retorno</h2>
+      <div class="ctl" style="grid-template-columns:110px minmax(0,1fr)">
+        <label for="outSel">Saída para a live</label>
+        <select id="outSel"><option value="">Padrão do sistema</option></select>
+      </div>
+      <p class="note">Na live, escolha <b>CABLE Input</b>. Aí o som vai para o OBS e você para de ouvir pelo PC. Use o retorno abaixo para ouvir no fone.</p>
+      <button id="outLoad" class="btn sm" type="button">Mostrar todas as saídas</button>
+      <div style="display:grid;gap:8px;border-top:1px dashed var(--line);padding-top:12px">
+        <label class="check"><input type="checkbox" id="monOn"> Ouvir no meu fone (retorno)</label>
+        <div class="ctl" style="grid-template-columns:110px minmax(0,1fr)">
+          <label for="monSel">Onde eu escuto</label>
+          <select id="monSel"><option value="">Padrão do sistema</option></select>
+        </div>
+        <div class="ctl">
+          <label for="monVol">Volume do retorno</label>
+          <input type="range" id="monVol" min="0" max="150" step="1">
+          <output id="monVolOut" for="monVol"></output>
+        </div>
+        <div class="row">
+          <button id="monMute" class="btn sm" type="button" aria-pressed="false">Mudo no retorno</button>
+          <label class="check" style="font-size:13px"><input type="checkbox" id="monVoice"> Incluir minha voz</label>
+        </div>
+        <p class="note">O mudo do retorno só tira o som do seu fone. A live continua recebendo tudo.</p>
+      </div>
+    </section>
     <section class="card remote" aria-labelledby="rmT">
       <div class="head"><h2 id="rmT">Controle pelo celular</h2><span id="rmPill" class="pill">Desligado</span></div>
       <p class="note">Toque nos sons pelo celular e eles saem aqui no PC, junto com a live. O celular não usa o microfone.</p>
@@ -205,10 +231,6 @@ select{background:var(--bg);border:1px solid var(--line);border-radius:7px;paddi
       <div id="fxGrid" class="fx" role="group" aria-label="Efeito de voz"></div>
       <div id="voiceCtl" style="display:grid;gap:6px"></div>
       <label class="check"><input type="checkbox" id="ns"> Redução de ruído do navegador (ventilador, teclado)</label>
-      <div id="outRow" class="row" hidden>
-        <label for="outSel" style="font-size:14px">Saída de áudio</label>
-        <select id="outSel"></select>
-      </div>
       <div class="saver" data-kind="voz"></div>
     </section>
     <section class="card backup" aria-labelledby="bkT">
@@ -300,6 +322,7 @@ select{background:var(--bg);border:1px solid var(--line);border-radius:7px;paddi
 
 <script>
 (() => {
+try { if (typeof window.__mesaCleanup === 'function') window.__mesaCleanup(); } catch (e) {}
 const $ = s => document.querySelector(s);
 const RCODE = (new URLSearchParams(location.search).get('r') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5);
 const conns = new Set();
@@ -468,7 +491,7 @@ function ensureCtx() {
   N.makeup = ctx.createGain();
   N.vIn.connect(N.hp).connect(N.low).connect(N.high); N.high.connect(N.preAn); N.high.connect(N.gate).connect(N.fxIn);
   N.fxOut.connect(N.comp).connect(N.makeup).connect(N.voz);
-  applyChannels(); applyVoice(); setFx(vs.fx);
+  applyChannels(); applyVoice(); setFx(vs.fx); applyOutput(); applyMonitor();
   if (ctx.audioWorklet) {
     const url = URL.createObjectURL(new Blob([PITCH_SRC], { type: 'application/javascript' }));
     ctx.audioWorklet.addModule(url).then(() => { pitchOK = true; setFx(vs.fx); }).catch(() => {});
@@ -586,17 +609,59 @@ $('#micBtn').onclick = () => micStream ? micOff() : micOn();
 const nsBox = $('#ns'); nsBox.checked = vs.ns;
 nsBox.onchange = async () => { vs.ns = nsBox.checked; store.set('voice', vs); if (micStream) { micOff(); await micOn(); } };
 
+/* ---------- Saída e retorno ---------- */
+const outCfg = Object.assign({ out: '', mon: '', monOn: false, monVol: 80, monMute: false, monVoice: false }, store.get('out', {}));
+const saveOut = () => store.set('out', outCfg);
+const monAudio = new Audio(); monAudio.autoplay = true;
 async function listOutputs() {
-  if (!ctx || typeof ctx.setSinkId !== 'function' || !navigator.mediaDevices?.enumerateDevices) return;
+  if (!navigator.mediaDevices?.enumerateDevices) return;
   try {
-    const devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'audiooutput');
-    const sel = $('#outSel'); sel.textContent = '';
-    sel.append(el('option', { value: '', text: 'Padrão do sistema' }));
-    devs.filter(d => d.deviceId !== 'default').forEach(d => sel.append(el('option', { value: d.deviceId, text: d.label || 'Saída de áudio' })));
-    $('#outRow').hidden = false;
+    const devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'audiooutput' && d.deviceId && d.deviceId !== 'default' && d.deviceId !== 'communications');
+    ['#outSel', '#monSel'].forEach(q => {
+      const sel = $(q), want = q === '#outSel' ? outCfg.out : outCfg.mon; sel.textContent = '';
+      sel.append(el('option', { value: '', text: 'Padrão do sistema' }));
+      devs.forEach(d => sel.append(el('option', { value: d.deviceId, text: d.label || 'Saída de áudio' })));
+      sel.value = devs.some(d => d.deviceId === want) ? want : '';
+    });
+    $('#outLoad').hidden = devs.length > 0 && devs.every(d => d.label);
   } catch (e) {}
 }
-$('#outSel').onchange = async e => { try { await ctx.setSinkId(e.target.value); toast('Saída alterada'); } catch (err) { toast('Não foi possível usar essa saída'); } };
+async function applyOutput() {
+  if (!ctx || typeof ctx.setSinkId !== 'function') return;
+  try { await ctx.setSinkId(outCfg.out || ''); } catch (e) { toast('Não foi possível usar essa saída'); }
+}
+function buildMonitor() {
+  if (!ctx || N.monBus) return;
+  N.monBus = ctx.createGain(); N.monVoice = ctx.createGain();
+  N.monDest = ctx.createMediaStreamDestination();
+  N.sonsAn.connect(N.monBus); N.vozAn.connect(N.monVoice); N.monVoice.connect(N.monBus); N.monBus.connect(N.monDest);
+  monAudio.srcObject = N.monDest.stream;
+}
+async function applyMonitor() {
+  $('#monVol').value = outCfg.monVol; $('#monVolOut').textContent = outCfg.monVol + '%';
+  $('#monOn').checked = outCfg.monOn; $('#monVoice').checked = outCfg.monVoice;
+  $('#monMute').setAttribute('aria-pressed', outCfg.monMute);
+  if (!ctx) return; buildMonitor();
+  const t = ctx.currentTime, on = outCfg.monOn && !outCfg.monMute;
+  N.monBus.gain.setTargetAtTime(on ? Math.pow(outCfg.monVol / 100, 2) : 0, t, .02);
+  N.monVoice.gain.setTargetAtTime(outCfg.monVoice ? 1 : 0, t, .02);
+  if (outCfg.monOn) {
+    try { if (typeof monAudio.setSinkId === 'function') await monAudio.setSinkId(outCfg.mon || ''); } catch (e) { toast('Não foi possível usar essa saída no retorno'); }
+    monAudio.play().catch(() => {});
+  } else monAudio.pause();
+}
+$('#outSel').onchange = e => { outCfg.out = e.target.value; saveOut(); ensureCtx(); applyOutput().then(() => toast('Saída para a live alterada')); };
+$('#monSel').onchange = e => { outCfg.mon = e.target.value; saveOut(); ensureCtx(); applyMonitor(); };
+$('#monOn').onchange = e => { outCfg.monOn = e.target.checked; saveOut(); ensureCtx(); applyMonitor(); if (outCfg.monOn && !outCfg.out && !outCfg.mon) toast('Retorno e saída estão no mesmo lugar: o som vai sair dobrado'); };
+$('#monVol').oninput = e => { outCfg.monVol = +e.target.value; saveOut(); applyMonitor(); };
+$('#monMute').onclick = () => { outCfg.monMute = !outCfg.monMute; saveOut(); ensureCtx(); applyMonitor(); };
+$('#monVoice').onchange = e => { outCfg.monVoice = e.target.checked; saveOut(); applyMonitor(); };
+$('#outLoad').onclick = async () => {
+  try { const st = await navigator.mediaDevices.getUserMedia({ audio: true }); st.getTracks().forEach(t => t.stop()); } catch (e) { toast('Permita o microfone para ver os nomes das saídas'); }
+  listOutputs();
+};
+navigator.mediaDevices?.addEventListener?.('devicechange', listOutputs);
+applyMonitor(); listOutputs();
 
 /* Controles de voz */
 const VCTL = [
@@ -673,7 +738,17 @@ function playPad(p) {
   markPad(p.id);
 }
 function stopPad(id) { const c = playing.get(id); if (!c) return; try { c.g.gain.setTargetAtTime(0, ctx.currentTime, .02); c.s.stop(ctx.currentTime + .12); } catch (e) {} playing.delete(id); markPad(id); }
-function stopAll() { [...playing.keys()].forEach(stopPad); if (seqTimer) seqStop(); }
+function stopAll() {
+  [...playing.keys()].forEach(stopPad); if (seqTimer) seqStop();
+  // corta qualquer som que ainda esteja saindo pelo canal Sons
+  if (ctx && N.sons) {
+    const old = N.sons; N.sons = ctx.createGain(); N.sons.gain.value = gainOf(ch.sons);
+    N.sons.connect(N.sonsAn); N.sons.connect(N.master);
+    try { old.gain.cancelScheduledValues(ctx.currentTime); old.gain.setValueAtTime(old.gain.value, ctx.currentTime); old.gain.linearRampToValueAtTime(0, ctx.currentTime + .03); } catch (e) {}
+    setTimeout(() => { try { old.disconnect(); } catch (e) {} }, 120);
+  }
+  toast('Sons parados');
+}
 $('#stopAll').onclick = stopAll;
 
 async function addPad(name, blob, buffer) {
@@ -1061,6 +1136,15 @@ async function clientStart(code) {
   });
 }
 
+// encerra esta instância se a página for trocada por uma versão nova sem recarregar
+window.__mesaCleanup = () => {
+  try { if (seqTimer && seqTimer !== 'ending') clearInterval(seqTimer); clearTimeout(seqEndT); seqTimer = null; } catch (e) {}
+  try { if (micStream) micStream.getTracks().forEach(t => t.stop()); } catch (e) {}
+  try { if (rec) rec.stop(); } catch (e) {}
+  try { if (peer) peer.destroy(); } catch (e) {}
+  try { if (ctx) ctx.close(); } catch (e) {}
+};
+window.addEventListener('pagehide', () => window.__mesaCleanup && window.__mesaCleanup());
 if (RCODE) { clientStart(RCODE); }
 else {
   renderFxButtons();
