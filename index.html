@@ -141,6 +141,15 @@ select{background:var(--bg);border:1px solid var(--line);border-radius:7px;paddi
 .chip .x{color:var(--dim);border-left:1px solid var(--line);padding:6px 9px}
 .chip .x.sure{color:#fff;background:var(--hot)}
 .chip.cur{border-color:var(--accent)}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.tabs button{border:1px solid var(--line);background:var(--panel2);border-radius:999px;padding:5px 12px;min-height:34px;font-size:13px;font-weight:600}
+.tabs button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--bg)}
+.kmap{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 10px;align-items:center;font-size:14px;padding:8px 0 4px}
+.kmap span{overflow-wrap:anywhere}
+.kbtn{min-width:84px;justify-content:center;font-family:var(--f-mono)}
+.kbtn.cap{background:var(--accent);border-color:var(--accent);color:var(--bg)}
+details.kgrp{border-top:1px solid var(--line);padding:8px 0}
+details.kgrp summary{cursor:pointer;font-weight:600;min-height:32px;display:flex;align-items:center}
 .rmcode{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
 #qr{background:#fff;padding:8px;border-radius:10px;line-height:0}
 #qr img,#qr canvas{width:132px;height:132px}
@@ -205,21 +214,26 @@ select{background:var(--bg);border:1px solid var(--line);border-radius:7px;paddi
       <p class="note">Na live, escolha <b>CABLE Input</b>. Aí o som vai para o OBS e você para de ouvir pelo PC. Use o retorno abaixo para ouvir no fone.</p>
       <button id="outLoad" class="btn sm" type="button">Mostrar todas as saídas</button>
       <div style="display:grid;gap:8px;border-top:1px dashed var(--line);padding-top:12px">
-        <label class="check"><input type="checkbox" id="monOn"> Ouvir no meu fone (retorno)</label>
         <div class="ctl" style="grid-template-columns:110px minmax(0,1fr)">
           <label for="monSel">Onde eu escuto</label>
           <select id="monSel"><option value="">Padrão do sistema</option></select>
         </div>
+        <label class="check"><input type="checkbox" id="monOn"> Ouvir no meu fone (retorno)</label>
         <div class="ctl">
           <label for="monVol">Volume do retorno</label>
           <input type="range" id="monVol" min="0" max="150" step="1">
           <output id="monVolOut" for="monVol"></output>
         </div>
+        <label class="check"><input type="checkbox" id="selfOn"> Ouvir minha voz enquanto falo</label>
+        <div class="ctl">
+          <label for="selfVol">Volume da minha voz</label>
+          <input type="range" id="selfVol" min="0" max="150" step="1">
+          <output id="selfVolOut" for="selfVol"></output>
+        </div>
         <div class="row">
           <button id="monMute" class="btn sm" type="button" aria-pressed="false">Mudo no retorno</button>
-          <label class="check" style="font-size:13px"><input type="checkbox" id="monVoice"> Incluir minha voz</label>
         </div>
-        <p class="note">O mudo do retorno só tira o som do seu fone. A live continua recebendo tudo.</p>
+        <p class="note">Tudo aqui sai só no seu fone; a live não muda. "Ouvir minha voz" mostra como a sua voz está saindo, já com o efeito escolhido. Pode ter um pequeno atraso. Se incomodar, abaixe o volume da sua voz.</p>
       </div>
     </section>
     <section class="card remote" aria-labelledby="rmT">
@@ -255,6 +269,11 @@ select{background:var(--bg);border:1px solid var(--line);border-radius:7px;paddi
       <label class="check"><input type="checkbox" id="ns"> Redução de ruído do navegador (ventilador, teclado)</label>
       <div class="saver" data-kind="voz"></div>
     </section>
+    <section class="card keysCard" aria-labelledby="kT">
+      <div class="head"><h2 id="kT">Teclas de atalho</h2><button id="kReset" class="btn sm" type="button">Restaurar padrão</button></div>
+      <p class="note">Clique no botão da tecla e aperte a nova tecla no teclado. Se ela já estiver em uso, sai da função antiga. Apagar (Backspace) tira a tecla; Esc cancela.</p>
+      <div id="kList"></div>
+    </section>
     <section class="card backup" aria-labelledby="bkT">
       <h2 id="bkT">Backup</h2>
       <p class="note">Tudo o que você salva fica guardado neste navegador. Para levar seus sons, presets e vinhetas para outro aparelho (do PC para o celular, por exemplo), exporte aqui e importe lá.</p>
@@ -276,12 +295,7 @@ select{background:var(--bg);border:1px solid var(--line);border-radius:7px;paddi
       <h3>Celular como controle</h3>
       <ul><li>No card "Controle pelo celular", toque em "Ligar controle neste PC" e escaneie o QR code com o celular. Os botões do celular tocam os sons aqui no PC.</li></ul>
       <h3>Atalhos (PC)</h3>
-      <div class="keys">
-        <span><kbd>1</kbd>…<kbd>P</kbd></span><span>tocar pads</span>
-        <span><kbd>A</kbd>…<kbd>K</kbd></span><span>trocar efeito de voz (A = sem efeito)</span>
-        <span><kbd>Espaço</kbd></span><span>mutar/desmutar a voz</span>
-        <span><kbd>Esc</kbd></span><span>parar todos os sons</span>
-      </div>
+      <p class="note">As teclas funcionam com a janela da Mesa em primeiro plano. Para mudar qualquer tecla, use o card "Teclas de atalho".</p>
     </section>
    </div>
    <div class="col">
@@ -294,9 +308,10 @@ select{background:var(--bg);border:1px solid var(--line);border-radius:7px;paddi
         </div>
       </div>
       <input type="file" id="fileIn" accept="audio/*" multiple hidden>
+      <div id="padTabs" class="tabs" role="group" aria-label="Categoria de sons"></div>
       <div id="padGrid"></div>
       <div id="editor" class="editor" hidden></div>
-      <p class="note">Toque para tocar, toque de novo para parar. No PC, cada pad tem a tecla mostrada no canto. Use ⋯ para renomear, mudar a cor, o volume ou excluir.</p>
+      <p class="note">Toque para tocar, toque de novo para parar. No PC, cada pad tem a tecla mostrada no canto. Use ⋯ para renomear, mudar a cor, o volume, a tecla ou excluir.</p>
     </section>
     <section class="card studio" aria-labelledby="stT">
       <div class="head">
@@ -332,6 +347,7 @@ select{background:var(--bg);border:1px solid var(--line);border-radius:7px;paddi
     <span id="rvPill" class="pill">Conectando…</span>
   </div>
   <p id="rvMsg" class="note"></p>
+  <div id="rvTabs" class="tabs" role="group" aria-label="Categoria de sons"></div>
   <div id="rvPads" class="rvpads"></div>
   <button id="rvStop" class="btn danger big" type="button">Parar todos os sons</button>
   <h2>Efeito de voz no PC</h2>
@@ -352,7 +368,7 @@ let bcastT = null;
 function broadcastSoon() { if (!conns.size || bcastT) return; bcastT = setTimeout(() => { bcastT = null; sendState(); }, 60); }
 function sendState(only) {
   if (typeof pads === 'undefined') return;
-  const msg = { t: 'state', pads: pads.map(p => ({ id: p.id, name: p.name, color: p.color, ready: buffers.has(p.id) })), playing: [...playing.keys()], fx: vs.fx, ch, fxList: FX.map(f => ({ id: f.id, name: f.name })), audioOn: !!(ctx && ctx.state === 'running') };
+  const msg = { t: 'state', pads: pads.map(p => ({ id: p.id, name: p.name, color: p.color, ready: buffers.has(p.id), cat: catOf(p) })), playing: [...playing.keys()], fx: vs.fx, ch, fxList: FX.map(f => ({ id: f.id, name: f.name })), audioOn: !!(ctx && ctx.state === 'running') };
   (only ? [only] : [...conns]).forEach(c => { try { c.open && c.send(msg); } catch (e) {} });
 }
 const el = (tag, props = {}, kids = []) => { const e = document.createElement(tag); for (const k in props) { if (k === 'text') e.textContent = props[k]; else if (k === 'cls') e.className = props[k]; else if (k.startsWith('on')) e.addEventListener(k.slice(2), props[k]); else e.setAttribute(k, props[k]); } kids.forEach(c => e.append(c)); return e; };
@@ -459,7 +475,172 @@ const DEFAULTS = [
       const g = envGain(c, 0, .005, 2.0, .9); s.connect(f).connect(g).connect(out); s.start(0); s.stop(2.2);
       const o = c.createOscillator(); o.frequency.setValueAtTime(70, 0); o.frequency.exponentialRampToValueAtTime(28, 1.2); o.connect(envGain(c, 0, .005, 1.3, .9)).connect(out); o.start(0); o.stop(1.5);
   } },
+  /* ---- memes e reações ---- */
+  { id: 'badum', name: 'Ba dum tss', color: COLORS[4], dur: 1.6, render(c, out) {
+      const tom = (t, f) => { const o = c.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(f, t); o.frequency.exponentialRampToValueAtTime(f * .6, t + .25); o.connect(envGain(c, t, .003, .3, .6)).connect(out); o.start(t); o.stop(t + .4); };
+      tom(0, 220); tom(.18, 150); kick(c, out, .42, .6); noiseHit(c, out, .42, 1.0, .35, 'highpass', 6000);
+  } },
+  { id: 'drama', name: 'Dun dun duuun', color: COLORS[1], dur: 3.4, render(c, out) {
+      const brass = (t, f, len) => { const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 900; lp.connect(held(c, out, t, len, .16)); [f, f * 1.003, f / 2].forEach(x => { const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.value = x; o.connect(lp); o.start(t); o.stop(t + len + .1); }); };
+      brass(0, 196, .22); kick(c, out, 0); brass(.32, 208, .22); kick(c, out, .32); brass(.66, 185, 2.4); kick(c, out, .66); crash(c, out, .66);
+  } },
+  { id: 'aplausos', name: 'Aplausos', color: COLORS[2], dur: 3.4, render(c, out) {
+      for (let i = 0; i < 140; i++) { const t = Math.random() * 2.8, f = 900 + Math.random() * 1600; noiseHit(c, out, t, .05 + Math.random() * .04, .12 + Math.random() * .1 * (1 - t / 3.4), 'bandpass', f, 1.4); }
+  } },
+  { id: 'torcida', name: 'Torcida', color: COLORS[2], dur: 4, render(c, out) {
+      const s = c.createBufferSource(); s.buffer = noiseBuf(c); s.loop = true;
+      const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 900; bp.Q.value = .7;
+      const am = c.createGain(); am.gain.value = .7; const l = c.createOscillator(); l.frequency.value = 3.3; const lg = c.createGain(); lg.gain.value = .25; l.connect(lg).connect(am.gain);
+      const g = c.createGain(); g.gain.setValueAtTime(.0001, 0); g.gain.exponentialRampToValueAtTime(.5, .9); g.gain.setValueAtTime(.5, 2.8); g.gain.exponentialRampToValueAtTime(.0001, 3.9);
+      s.connect(bp).connect(am).connect(g).connect(out); s.start(0); l.start(0); s.stop(4); l.stop(4);
+      for (let i = 0; i < 60; i++) { const t = .4 + Math.random() * 2.6; noiseHit(c, out, t, .05, .08, 'bandpass', 1500 + Math.random() * 1000, 1.4); }
+  } },
+  { id: 'grilos', name: 'Grilos (silêncio)', color: COLORS[3], dur: 3.2, render(c, out) {
+      for (let k = 0; k < 5; k++) { const t0 = k * .62; for (let i = 0; i < 3; i++) tone(c, out, t0 + i * .055, 4300 + k % 2 * 120, .035, 'sine', .12); }
+  } },
+  { id: 'tique', name: 'Tique-taque', color: COLORS[0], dur: 4.1, render(c, out) {
+      for (let i = 0; i < 8; i++) noiseHit(c, out, i * .5, .03, .5, 'bandpass', i % 2 ? 2400 : 3400, 6);
+  } },
+  { id: 'censura', name: 'Piii (censura)', color: COLORS[1], dur: .9, render(c, out) {
+      const o = c.createOscillator(); o.type = 'sine'; o.frequency.value = 1000; o.connect(held(c, out, 0, .75, .3)); o.start(0); o.stop(.85);
+  } },
+  { id: 'boing', name: 'Boing', color: COLORS[2], dur: 1.2, render(c, out) {
+      const o = c.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(140, 0); o.frequency.exponentialRampToValueAtTime(420, .9);
+      const l = c.createOscillator(); l.frequency.value = 14; const lg = c.createGain(); lg.gain.setValueAtTime(70, 0); lg.gain.exponentialRampToValueAtTime(2, 1); l.connect(lg).connect(o.frequency);
+      o.connect(envGain(c, 0, .005, 1, .45)).connect(out); o.start(0); l.start(0); o.stop(1.1); l.stop(1.1);
+  } },
+  { id: 'pop', name: 'Pop', color: COLORS[5], dur: .4, render(c, out) {
+      const o = c.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(900, 0); o.frequency.exponentialRampToValueAtTime(160, .08); o.connect(envGain(c, 0, .002, .12, .6)).connect(out); o.start(0); o.stop(.2);
+  } },
+  { id: 'whoosh', name: 'Whoosh', color: COLORS[3], dur: 1, render(c, out) {
+      const s = c.createBufferSource(); s.buffer = noiseBuf(c); const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 2;
+      bp.frequency.setValueAtTime(250, 0); bp.frequency.exponentialRampToValueAtTime(3500, .35); bp.frequency.exponentialRampToValueAtTime(300, .8);
+      const g = c.createGain(); g.gain.setValueAtTime(.0001, 0); g.gain.exponentialRampToValueAtTime(.9, .33); g.gain.exponentialRampToValueAtTime(.0001, .85);
+      s.connect(bp).connect(g).connect(out); s.start(0); s.stop(.9);
+  } },
+  { id: 'kaching', name: 'Ka-ching', color: COLORS[0], dur: 1.6, render(c, out) {
+      noiseHit(c, out, 0, .05, .5, 'highpass', 3000); noiseHit(c, out, .07, .05, .4, 'highpass', 3000);
+      bell(c, out, .12, 2093, .22, 1.2); bell(c, out, .2, 2637, .2, 1.3);
+      for (let i = 0; i < 10; i++) tone(c, out, .25 + Math.random() * .5, 3000 + Math.random() * 3000, .08, 'sine', .05);
+  } },
+  { id: 'notif', name: 'Notificação', color: COLORS[3], dur: 1, render(c, out) { bell(c, out, 0, 880, .22, .5); bell(c, out, .12, 1320, .22, .7); } },
+  { id: 'coracao', name: 'Coração', color: COLORS[1], dur: 2.8, render(c, out) {
+      const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 180; lp.connect(out);
+      for (let i = 0; i < 3; i++) { kick(c, lp, i * .85, 1); kick(c, lp, i * .85 + .2, .7); }
+  } },
+  { id: 'suspense', name: 'Suspense', color: COLORS[4], dur: 4.2, render(c, out) {
+      const d = c.createOscillator(); d.type = 'sawtooth'; d.frequency.value = 55; const dl = c.createBiquadFilter(); dl.type = 'lowpass'; dl.frequency.value = 300;
+      d.connect(dl).connect(held(c, out, 0, 3.8, .2)); d.start(0); d.stop(4.1);
+      const o = c.createOscillator(); o.type = 'triangle'; o.frequency.setValueAtTime(660, 0); o.frequency.linearRampToValueAtTime(990, 3.8);
+      const am = c.createGain(); am.gain.value = 0; const l = c.createOscillator(); l.frequency.value = 9; const lg = c.createGain(); lg.gain.value = .07; l.connect(lg).connect(am.gain);
+      o.connect(am).connect(out); o.start(0); l.start(0); o.stop(4); l.stop(4);
+  } },
+  /* ---- jogo ---- */
+  { id: 'moeda', name: 'Moeda', color: COLORS[0], dur: .8, render(c, out) { tone(c, out, 0, 988, .07, 'square', .14); tone(c, out, .07, 1319, .5, 'square', .14); } },
+  { id: 'pulo', name: 'Pulo', color: COLORS[2], dur: .5, render(c, out) {
+      const o = c.createOscillator(); o.type = 'square'; o.frequency.setValueAtTime(260, 0); o.frequency.exponentialRampToValueAtTime(900, .18); o.connect(envGain(c, 0, .005, .24, .14)).connect(out); o.start(0); o.stop(.3);
+  } },
+  { id: 'levelup', name: 'Level up', color: COLORS[2], dur: 1.8, render(c, out) {
+      [523, 659, 784, 1047, 784, 1047, 1319].forEach((f, i) => tone(c, out, i * .07, f, .09, 'square', .12)); tone(c, out, .5, 1568, .9, 'square', .1); bell(c, out, .5, 2093, .12, 1);
+  } },
+  { id: 'powerup', name: 'Power up', color: COLORS[4], dur: 1.2, render(c, out) {
+      for (let i = 0; i < 12; i++) tone(c, out, i * .06, 300 * Math.pow(1.12, i), .07, 'square', .1);
+  } },
+  { id: 'gameover', name: 'Game over', color: COLORS[5], dur: 2.6, render(c, out) {
+      [[659, 0], [523, .3], [440, .6], [349, .9]].forEach(([f, t]) => tone(c, out, t, f, .26, 'square', .13)); tone(c, out, 1.25, 262, 1.1, 'triangle', .2);
+  } },
+  { id: 'laser', name: 'Laser', color: COLORS[1], dur: .5, render(c, out) {
+      const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(1900, 0); o.frequency.exponentialRampToValueAtTime(180, .25); o.connect(envGain(c, 0, .003, .3, .18)).connect(out); o.start(0); o.stop(.35);
+  } },
+  { id: 'tiro', name: 'Tiro', color: COLORS[5], dur: 1.2, render(c, out) {
+      noiseHit(c, out, 0, .35, .9, 'lowpass', 2500); kick(c, out, 0, .8); noiseHit(c, out, .02, .9, .15, 'lowpass', 700);
+  } },
+  { id: 'rajada', name: 'Rajada', color: COLORS[5], dur: 1.4, render(c, out) {
+      for (let i = 0; i < 10; i++) { noiseHit(c, out, i * .075, .07, .7, 'lowpass', 2800); kick(c, out, i * .075, .4); }
+  } },
+  { id: 'morri', name: 'Morri', color: COLORS[1], dur: 3.4, render(c, out) {
+      kick(c, out, 0, 1); noiseHit(c, out, 0, 1.5, .25, 'lowpass', 400);
+      const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(1200, .2); lp.frequency.exponentialRampToValueAtTime(250, 3); lp.connect(held(c, out, .2, 2.7, .16));
+      [220, 261, 330].forEach(f => { const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(f, .2); o.frequency.exponentialRampToValueAtTime(f * .7, 3); o.connect(lp); o.start(.2); o.stop(3.1); });
+  } },
+  { id: 'teleporte', name: 'Teleporte', color: COLORS[4], dur: 1.3, render(c, out) {
+      const o = c.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(200, 0); o.frequency.exponentialRampToValueAtTime(2400, 1);
+      const l = c.createOscillator(); l.frequency.value = 30; const lg = c.createGain(); lg.gain.value = 120; l.connect(lg).connect(o.frequency);
+      o.connect(envGain(c, 0, .3, .8, .2)).connect(out); o.start(0); l.start(0); o.stop(1.2); l.stop(1.2);
+  } },
+  { id: 'glitch', name: 'Glitch', color: COLORS[3], dur: 1, render(c, out) {
+      for (let i = 0; i < 14; i++) { const t = i * .06; if (Math.random() < .5) tone(c, out, t, 100 + Math.random() * 1800, .04, 'square', .12); else noiseHit(c, out, t, .04, .3, 'bandpass', 500 + Math.random() * 4000, 3); }
+  } },
+  /* ---- futebol e rua ---- */
+  { id: 'apito', name: 'Apito', color: COLORS[2], dur: 1.9, render(c, out) {
+      [[0, .16], [.26, .16], [.52, 1.1]].forEach(([t, len]) => {
+        const o = c.createOscillator(); o.type = 'sine'; o.frequency.value = 2900; const l = c.createOscillator(); l.frequency.value = 32; const lg = c.createGain(); lg.gain.value = 140; l.connect(lg).connect(o.frequency);
+        o.connect(held(c, out, t, len, .2)); o.start(t); l.start(t); o.stop(t + len + .1); l.stop(t + len + .1); noiseHit(c, out, t, len, .05, 'bandpass', 2900, 4);
+      });
+  } },
+  { id: 'sino', name: 'Sino de luta', color: COLORS[0], dur: 2.4, render(c, out) {
+      [0, .3, .6].forEach(t => [1, 2.4, 3.9].forEach((m, i) => tone(c, out, t, 820 * m, 1.6, 'sine', [.25, .12, .06][i])));
+  } },
+  { id: 'carro', name: 'Buzina de carro', color: COLORS[5], dur: 1.3, render(c, out) {
+      [[0, .22], [.36, .6]].forEach(([t, len]) => { const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2000; lp.connect(held(c, out, t, len, .16)); [400, 500].forEach(f => { const o = c.createOscillator(); o.type = 'square'; o.frequency.value = f; o.connect(lp); o.start(t); o.stop(t + len + .1); }); });
+  } },
+  { id: 'freada', name: 'Freada e batida', color: COLORS[1], dur: 2.8, render(c, out) {
+      const s = c.createBufferSource(); s.buffer = noiseBuf(c); const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 12;
+      bp.frequency.setValueAtTime(2600, 0); bp.frequency.linearRampToValueAtTime(1900, 1.4);
+      s.connect(bp).connect(held(c, out, 0, 1.35, .9)); s.start(0); s.stop(1.5);
+      kick(c, out, 1.45, 1); noiseHit(c, out, 1.45, 1, .5, 'lowpass', 3000); for (let i = 0; i < 12; i++) bell(c, out, 1.5 + Math.random() * .4, 2500 + Math.random() * 3000, .05, .3);
+  } },
+  { id: 'ambulancia', name: 'Ambulância', color: COLORS[3], dur: 3.2, render(c, out) {
+      const o = c.createOscillator(); o.type = 'triangle'; for (let i = 0; i < 6; i++) o.frequency.setValueAtTime(i % 2 ? 770 : 960, i * .5);
+      const ws = c.createWaveShaper(); ws.curve = shaperCurve2(4); o.connect(ws).connect(held(c, out, 0, 2.95, .14)); o.start(0); o.stop(3.1);
+  } },
+  { id: 'heli', name: 'Helicóptero', color: COLORS[3], dur: 3.4, render(c, out) {
+      const s = c.createBufferSource(); s.buffer = noiseBuf(c); s.loop = true; const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 500;
+      const am = c.createGain(); am.gain.value = .3; const l = c.createOscillator(); l.type = 'square'; l.frequency.value = 13; const lg = c.createGain(); lg.gain.value = .3; l.connect(lg).connect(am.gain);
+      s.connect(lp).connect(am).connect(held(c, out, 0, 3.1, 1.6)); s.start(0); l.start(0); s.stop(3.3); l.stop(3.3);
+  } },
+  { id: 'trovao', name: 'Trovão', color: COLORS[4], dur: 4, render(c, out) {
+      noiseHit(c, out, 0, .3, .9, 'highpass', 800);
+      const s = c.createBufferSource(); s.buffer = noiseBuf(c); s.loop = true; const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 220;
+      s.connect(lp).connect(envGain(c, .05, .2, 3.5, 1.4)).connect(out); s.start(0); s.stop(4);
+  } },
+  { id: 'vidro', name: 'Vidro quebrando', color: COLORS[3], dur: 1.6, render(c, out) {
+      noiseHit(c, out, 0, .25, .7, 'highpass', 3000); for (let i = 0; i < 26; i++) bell(c, out, Math.random() * .7, 2500 + Math.random() * 5000, .06, .25 + Math.random() * .4);
+  } },
+  { id: 'alarme', name: 'Alarme', color: COLORS[1], dur: 2.5, render(c, out) { for (let i = 0; i < 8; i++) tone(c, out, i * .3, i % 2 ? 1000 : 800, .26, 'square', .12); } },
+  /* ---- vinhetas ---- */
+  { id: 'abertura', name: 'Vinheta: abertura', color: COLORS[0], dur: 3.6, render(c, out) {
+      const sd = .14; for (let s = 0; s < 16; s++) { if (s % 4 === 0) kick(c, out, s * sd); if (s % 8 === 4) snare(c, out, s * sd); hat(c, out, s * sd); }
+      [[392, 0], [523, 2], [659, 4], [784, 6], [659, 8], [784, 10], [1047, 12]].forEach(([f, s]) => sawLead(c, out, s * sd, f, sd * 2));
+      kick(c, out, 16 * sd); crash(c, out, 16 * sd); [523, 659, 784, 1047].forEach(f => sawLead(c, out, 16 * sd, f, 1.2, .09));
+  } },
+  { id: 'intervalo', name: 'Vinheta: já volto', color: COLORS[4], dur: 3.4, render(c, out) {
+      [[523, 0], [659, .25], [784, .5], [988, .75], [880, 1.1], [784, 1.35], [659, 1.6], [784, 1.95]].forEach(([f, t]) => bell(c, out, t, f, .18, 1));
+      [131, 165, 196].forEach(f => tone(c, out, 0, f, 2.6, 'triangle', .08));
+  } },
+  { id: 'encerramento', name: 'Vinheta: encerramento', color: COLORS[5], dur: 3.8, render(c, out) {
+      const sd = .16; for (let s = 0; s < 12; s++) { if (s % 4 === 0) kick(c, out, s * sd); if (s % 4 === 2) clap(c, out, s * sd); hat(c, out, s * sd); }
+      [[784, 0], [659, 2], [523, 4], [587, 6], [659, 8], [523, 10]].forEach(([f, s]) => sawLead(c, out, s * sd, f, sd * 2));
+      [262, 330, 392, 523].forEach(f => sawLead(c, out, 12 * sd, f, 1.6, .08)); crash(c, out, 12 * sd); kick(c, out, 12 * sd);
+  } },
+  { id: 'vitoria', name: 'Vitória', color: COLORS[2], dur: 3, render(c, out) {
+      const br = (t, f, len) => { const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2400; lp.connect(held(c, out, t, len, .12)); [f, f * 1.004].forEach(x => { const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.value = x; o.connect(lp); o.start(t); o.stop(t + len + .1); }); };
+      br(0, 392, .12); br(.16, 392, .12); br(.32, 523, .5); br(.9, 494, .14); br(1.08, 523, .14); br(1.26, 659, 1.3); br(1.26, 523, 1.3); br(1.26, 392, 1.3);
+      kick(c, out, .32); kick(c, out, 1.26); crash(c, out, 1.26);
+  } },
 ];
+function shaperCurve2(k) { const n = 512, cv = new Float32Array(n); for (let i = 0; i < n; i++) { const x = i * 2 / n - 1; cv[i] = (1 + k) * x / (1 + k * Math.abs(x)); } return cv; }
+const CATS = [
+  { id: 'all', name: 'Todos' }, { id: 'memes', name: 'Memes e reações' }, { id: 'jogo', name: 'Jogo' }, { id: 'rua', name: 'Futebol e rua' }, { id: 'vinheta', name: 'Vinhetas' }, { id: 'meus', name: 'Meus sons' },
+];
+const CAT_OF = {
+  horn: 'memes', errou: 'memes', roll: 'memes', plim: 'memes', badum: 'memes', drama: 'memes', aplausos: 'memes', torcida: 'rua', grilos: 'memes', tique: 'memes', censura: 'memes', boing: 'memes', pop: 'memes', whoosh: 'memes', kaching: 'memes', notif: 'memes', coracao: 'memes', suspense: 'memes',
+  missao: 'jogo', boom: 'jogo', moeda: 'jogo', pulo: 'jogo', levelup: 'jogo', powerup: 'jogo', gameover: 'jogo', laser: 'jogo', tiro: 'jogo', rajada: 'jogo', morri: 'jogo', teleporte: 'jogo', glitch: 'jogo',
+  gol: 'rua', apito: 'rua', sino: 'rua', carro: 'rua', freada: 'rua', sirene: 'rua', ambulancia: 'rua', heli: 'rua', trovao: 'rua', vidro: 'rua', alarme: 'rua',
+  abertura: 'vinheta', intervalo: 'vinheta', encerramento: 'vinheta', vitoria: 'vinheta',
+};
+const ORIGINAL_DEFAULTS = ['horn', 'gol', 'roll', 'errou', 'missao', 'sirene', 'plim', 'boom'];
+const catOf = p => p.src && p.src.startsWith('synth:') ? (CAT_OF[p.src.slice(6)] || 'memes') : 'meus';
 async function renderOffline(dur, fn) {
   const sr = 44100; const off = new OfflineAudioContext(2, Math.ceil(dur * sr), sr);
   const bus = off.createGain(); bus.gain.value = .9; bus.connect(off.destination);
@@ -501,7 +682,8 @@ function ensureCtx() {
   try { ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' }); } catch (e) { return null; }
   N.master = ctx.createGain(); N.masterAn = analyser(); N.master.connect(N.masterAn); N.master.connect(ctx.destination);
   N.sons = ctx.createGain(); N.sonsAn = analyser(); N.sons.connect(N.sonsAn); N.sons.connect(N.master);
-  N.voz = ctx.createGain(); N.vozAn = analyser(); N.voz.connect(N.vozAn); N.voz.connect(N.master);
+  // vozLive: em "Sem efeito" a voz da Mesa não vai para a live (o OBS usa o microfone dele)
+  N.voz = ctx.createGain(); N.vozAn = analyser(); N.vozLive = ctx.createGain(); N.voz.connect(N.vozAn); N.voz.connect(N.vozLive).connect(N.master);
   // cadeia de voz
   N.vIn = ctx.createGain();
   N.hp = ctx.createBiquadFilter(); N.hp.type = 'highpass'; N.hp.frequency.value = 80;
@@ -520,6 +702,7 @@ function ensureCtx() {
   }
   ctx.resume().catch(() => {});
   ctx.onstatechange = updateEngine; updateEngine();
+  setTimeout(() => { if (outCfg.selfOn && !micStream) micOn(); }, 0);
   return ctx;
 }
 function updateEngine() { const p = $('#engine'); const on = ctx && ctx.state === 'running'; const ab = $('#armBar'); if (ab) ab.hidden = !!on || !!RCODE; broadcastSoon(); p.classList.toggle('on', !!on); p.textContent = on ? (micStream ? 'Áudio ligado · mic ativo' : 'Áudio ligado') : 'Áudio aguardando o 1º toque'; }
@@ -536,8 +719,11 @@ function applyVoice() {
 
 /* ---------- Efeitos de voz ---------- */
 const FX = [
-  { id: 'obs', name: 'Sem efeito (voz do OBS)', key: 'A' }, { id: 'normal', name: 'Normal', key: 'S' }, { id: 'grave', name: 'Voz grossa', key: 'D' },
-  { id: 'fina', name: 'Esquilo', key: 'F' }, { id: 'robo', name: 'Robô', key: 'G' }, { id: 'radio', name: 'Rádio da polícia', key: 'H' }, { id: 'eco', name: 'Eco', key: 'J' }, { id: 'caverna', name: 'Caverna', key: 'K' },
+  { id: 'obs', name: 'Sem efeito (voz do OBS)' }, { id: 'normal', name: 'Normal' }, { id: 'grave', name: 'Voz grossa' },
+  { id: 'fina', name: 'Esquilo' }, { id: 'robo', name: 'Robô' }, { id: 'radio', name: 'Rádio da polícia' }, { id: 'eco', name: 'Eco' }, { id: 'caverna', name: 'Caverna' },
+  { id: 'monstro', name: 'Monstro' }, { id: 'crianca', name: 'Criança' }, { id: 'alien', name: 'Alienígena' }, { id: 'telefone', name: 'Telefone' },
+  { id: 'megafone', name: 'Megafone' }, { id: 'estadio', name: 'Estádio' }, { id: 'banheiro', name: 'Banheiro' }, { id: 'bebado', name: 'Bêbado' },
+  { id: 'fantasma', name: 'Fantasma' }, { id: 'distorcido', name: 'Distorcido' }, { id: 'coro', name: 'Coral (várias vozes)' }, { id: 'demonio', name: 'Demônio' },
 ];
 let fxNodes = [];
 function impulse(sec = 2.6) { const len = ctx.sampleRate * sec, b = ctx.createBuffer(2, len, ctx.sampleRate); for (let c = 0; c < 2; c++) { const d = b.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3); } return b; }
@@ -561,11 +747,47 @@ function setFx(id) {
   try { N.fxIn.disconnect(); } catch (e) {}
   fxNodes.forEach(n => { try { n.disconnect(); } catch (e) {} try { n.stop && n.stop(); } catch (e) {} }); fxNodes = [];
   const mk = n => (fxNodes.push(n), n); const I = N.fxIn, O = N.fxOut;
+  const pitch = ratio => { let p = null; if (pitchOK) { try { p = new AudioWorkletNode(ctx, 'pitch-shift', { outputChannelCount: [1] }); p.parameters.get('ratio').value = ratio; } catch (e) { p = null; } } return mk(p || spPitch(ratio)); };
+  const gain = v => { const g = mk(ctx.createGain()); g.gain.value = v; return g; };
+  const filt = (type, f, q, gn) => { const b = mk(ctx.createBiquadFilter()); b.type = type; b.frequency.value = f; if (q != null) b.Q.value = q; if (gn != null) b.gain.value = gn; return b; };
+  const shaper = k => { const w = mk(ctx.createWaveShaper()); w.curve = shaperCurve(k); w.oversample = '2x'; return w; };
+  const reverb = (sec, wetV) => { const cv = mk(ctx.createConvolver()); cv.buffer = impulse(sec); const w = gain(wetV); cv.connect(w); return [cv, w]; };
+  const lfo = (freq, depth, target) => { const o = mk(ctx.createOscillator()); o.frequency.value = freq; const g = gain(depth); o.connect(g).connect(target); o.start(); return o; };
+  vozRoute();
   if (id === 'grave' || id === 'fina') {
-    const ratio = id === 'grave' ? .72 : 1.55; let p = null;
-    if (pitchOK) { try { p = new AudioWorkletNode(ctx, 'pitch-shift', { outputChannelCount: [1] }); p.parameters.get('ratio').value = ratio; } catch (e) { p = null; } }
-    if (!p) p = spPitch(ratio);
-    mk(p); I.connect(p).connect(O);
+    I.connect(pitch(id === 'grave' ? .72 : 1.55)).connect(O);
+  } else if (id === 'monstro') {
+    const p = pitch(.55); I.connect(p).connect(filt('lowshelf', 200, null, 6)).connect(shaper(4)).connect(gain(.8)).connect(O);
+  } else if (id === 'crianca') {
+    I.connect(pitch(1.32)).connect(filt('highshelf', 3000, null, 4)).connect(O);
+  } else if (id === 'alien') {
+    const p = pitch(1.2); I.connect(p); const rg = gain(0); lfo(220, 1, rg.gain); p.connect(rg).connect(O); p.connect(gain(.5)).connect(O);
+    const d = mk(ctx.createDelay(.1)); d.delayTime.value = .02; lfo(6, .006, d.delayTime); p.connect(d).connect(gain(.6)).connect(O);
+  } else if (id === 'telefone') {
+    I.connect(filt('highpass', 400, .7)).connect(filt('lowpass', 3400, .7)).connect(shaper(6)).connect(gain(.8)).connect(O);
+  } else if (id === 'megafone') {
+    I.connect(filt('highpass', 700, .9)).connect(filt('peaking', 2000, 1, 10)).connect(filt('lowpass', 4200, .8)).connect(shaper(60)).connect(gain(.45)).connect(O);
+  } else if (id === 'estadio') {
+    I.connect(O); const [cv, w] = reverb(4, .55); I.connect(cv); w.connect(O);
+    const d = mk(ctx.createDelay(1)); d.delayTime.value = .18; const fb = gain(.3); I.connect(d); d.connect(fb).connect(d); d.connect(gain(.35)).connect(O);
+  } else if (id === 'banheiro') {
+    I.connect(O); const [cv, w] = reverb(.7, .9); I.connect(cv); w.connect(O);
+  } else if (id === 'bebado') {
+    const d = mk(ctx.createDelay(.2)); d.delayTime.value = .03; lfo(1.3, .012, d.delayTime); lfo(4.7, .003, d.delayTime); I.connect(d).connect(O);
+  } else if (id === 'fantasma') {
+    const p = pitch(1.08), hp = filt('highpass', 350, .7); I.connect(hp).connect(p); p.connect(gain(.35)).connect(O);
+    const [cv, w] = reverb(3.5, 1.1); p.connect(cv); w.connect(O);
+    const d = mk(ctx.createDelay(1)); d.delayTime.value = .4; const fb = gain(.45); p.connect(d); d.connect(fb).connect(d); d.connect(gain(.4)).connect(O);
+  } else if (id === 'distorcido') {
+    I.connect(gain(2)).connect(shaper(150)).connect(filt('lowpass', 3800, .7)).connect(gain(.35)).connect(O);
+  } else if (id === 'coro') {
+    I.connect(gain(.7)).connect(O);
+    [[.018, .9, .004], [.027, 1.3, .005], [.035, .6, .006]].forEach(([dt, f, dep]) => { const d = mk(ctx.createDelay(.1)); d.delayTime.value = dt; lfo(f, dep, d.delayTime); I.connect(d).connect(gain(.5)).connect(O); });
+    I.connect(pitch(.99)).connect(gain(.35)).connect(O);
+  } else if (id === 'demonio') {
+    const lo = pitch(.5), mid = pitch(.85); I.connect(lo); I.connect(mid);
+    const mix = gain(1); lo.connect(gain(.9)).connect(mix); mid.connect(gain(.5)).connect(mix);
+    mix.connect(shaper(3)).connect(O); const [cv, w] = reverb(2.5, .5); mix.connect(cv); w.connect(O);
   } else if (id === 'robo') {
     const rg = mk(ctx.createGain()); rg.gain.value = 0; const o = mk(ctx.createOscillator()); o.frequency.value = 52; o.connect(rg.gain); o.start();
     const d = mk(ctx.createDelay(.1)); d.delayTime.value = .011; const fb = mk(ctx.createGain()); fb.gain.value = .55;
@@ -586,10 +808,11 @@ function setFx(id) {
     I.connect(O);
   }
 }
+function vozRoute() { if (!ctx || !N.vozLive) return; N.vozLive.gain.setTargetAtTime(vs.fx === 'obs' ? 0 : 1, ctx.currentTime, .02); }
 async function chooseFx(id) {
   ensureCtx(); setFx(id);
   if (id === 'obs') {
-    if (micStream) micOff(true);
+    if (micStream && !outCfg.selfOn && !rec) micOff(true);
     obsSetMicMute(false);
     micMsg('Sem efeito: a Mesa não mexe na sua voz. O OBS usa o seu microfone normal.', false);
   } else {
@@ -601,9 +824,12 @@ async function chooseFx(id) {
 }
 function renderFxButtons() {
   const g = $('#fxGrid'); if (!g.children.length) {
-    FX.forEach(f => g.append(el('button', { type: 'button', 'data-fx': f.id, onclick: () => chooseFx(f.id) }, [el('span', { text: f.name }), el('kbd', { text: f.key })])));
+    FX.forEach(f => g.append(el('button', { type: 'button', 'data-fx': f.id, onclick: () => chooseFx(f.id) }, [el('span', { text: f.name }), el('kbd')])));
   }
-  g.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.fx === vs.fx));
+  g.querySelectorAll('button').forEach(b => {
+    b.setAttribute('aria-pressed', b.dataset.fx === vs.fx);
+    const k = b.querySelector('kbd'), lab = codeLabel(binds['fx:' + b.dataset.fx]); k.textContent = lab; k.hidden = !lab;
+  });
 }
 
 /* ---------- Microfone ---------- */
@@ -619,24 +845,28 @@ async function micOn() {
     updateMicBtn(); return false;
   }
   micSrc = ctx.createMediaStreamSource(micStream); micSrc.connect(N.vIn);
-  if (vs.fx === 'obs') setFx('normal');
-  micMsg('Microfone ligado na Mesa. Desligue o microfone no OBS para a voz não sair duplicada. Use fone de ouvido.', true);
+  if (vs.fx === 'obs') micMsg('Microfone aberto só para você se ouvir no fone. A live continua com o microfone do OBS.', false);
+  else micMsg('Microfone ligado na Mesa. Desligue o microfone no OBS para a voz não sair duplicada. Use fone de ouvido.', true);
   updateMicBtn(); updateEngine(); listOutputs(); return true;
 }
 function micOff(quiet) {
   if (micSrc) { try { micSrc.disconnect(); } catch (e) {} micSrc = null; }
   if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
-  if (!quiet) { micMsg('Microfone desligado na Mesa. A voz fica só no OBS.', false); setFx('obs'); obsSetMicMute(false); }
+  if (!quiet) {
+    micMsg('Microfone desligado na Mesa. A voz fica só no OBS.', false); setFx('obs'); obsSetMicMute(false);
+    if (outCfg.selfOn) { outCfg.selfOn = false; saveOut(); applyMonitor(); }
+  }
   updateMicBtn(); updateEngine();
 }
 function micMsg(t, warn) { const m = $('#micMsg'); m.textContent = t; m.classList.toggle('warn', !!warn); }
 function updateMicBtn() { const b = $('#micBtn'); b.textContent = micStream ? 'Desligar microfone' : 'Ligar microfone'; b.className = 'btn ' + (micStream ? 'live' : 'primary'); }
-$('#micBtn').onclick = () => micStream ? micOff() : micOn();
+$('#micBtn').onclick = () => micStream ? micOff() : (vs.fx === 'obs' ? chooseFx('normal') : micOn());
 const nsBox = $('#ns'); nsBox.checked = vs.ns;
 nsBox.onchange = async () => { vs.ns = nsBox.checked; store.set('voice', vs); if (micStream) { micOff(); await micOn(); } };
 
 /* ---------- Saída e retorno ---------- */
 const outCfg = Object.assign({ out: '', mon: '', monOn: false, monVol: 80, monMute: false, monVoice: false }, store.get('out', {}));
+if (outCfg.selfOn === undefined) { outCfg.selfOn = !!(outCfg.monVoice && outCfg.monOn); outCfg.selfVol = 100; }
 const saveOut = () => store.set('out', outCfg);
 const monAudio = new Audio(); monAudio.autoplay = true;
 async function listOutputs() {
@@ -660,18 +890,19 @@ function buildMonitor() {
   if (!ctx || N.monBus) return;
   N.monBus = ctx.createGain(); N.monVoice = ctx.createGain();
   N.monDest = ctx.createMediaStreamDestination();
-  N.sonsAn.connect(N.monBus); N.vozAn.connect(N.monVoice); N.monVoice.connect(N.monBus); N.monBus.connect(N.monDest);
+  N.sonsAn.connect(N.monBus); N.vozAn.connect(N.monVoice); N.monVoice.connect(N.monDest); N.monBus.connect(N.monDest);
   monAudio.srcObject = N.monDest.stream;
 }
 async function applyMonitor() {
   $('#monVol').value = outCfg.monVol; $('#monVolOut').textContent = outCfg.monVol + '%';
-  $('#monOn').checked = outCfg.monOn; $('#monVoice').checked = outCfg.monVoice;
+  $('#selfVol').value = outCfg.selfVol; $('#selfVolOut').textContent = outCfg.selfVol + '%';
+  $('#monOn').checked = outCfg.monOn; $('#selfOn').checked = outCfg.selfOn;
   $('#monMute').setAttribute('aria-pressed', outCfg.monMute);
   if (!ctx) return; buildMonitor();
-  const t = ctx.currentTime, on = outCfg.monOn && !outCfg.monMute;
-  N.monBus.gain.setTargetAtTime(on ? Math.pow(outCfg.monVol / 100, 2) : 0, t, .02);
-  N.monVoice.gain.setTargetAtTime(outCfg.monVoice ? 1 : 0, t, .02);
-  if (outCfg.monOn) {
+  const t = ctx.currentTime;
+  N.monBus.gain.setTargetAtTime(outCfg.monOn && !outCfg.monMute ? Math.pow(outCfg.monVol / 100, 2) : 0, t, .02);
+  N.monVoice.gain.setTargetAtTime(outCfg.selfOn && !outCfg.monMute ? Math.pow(outCfg.selfVol / 100, 2) : 0, t, .02);
+  if (outCfg.monOn || outCfg.selfOn) {
     try { if (typeof monAudio.setSinkId === 'function') await monAudio.setSinkId(outCfg.mon || ''); } catch (e) { toast('Não foi possível usar essa saída no retorno'); }
     monAudio.play().catch(() => {});
   } else monAudio.pause();
@@ -681,7 +912,12 @@ $('#monSel').onchange = e => { outCfg.mon = e.target.value; saveOut(); ensureCtx
 $('#monOn').onchange = e => { outCfg.monOn = e.target.checked; saveOut(); ensureCtx(); applyMonitor(); if (outCfg.monOn && !outCfg.out && !outCfg.mon) toast('Retorno e saída estão no mesmo lugar: o som vai sair dobrado'); };
 $('#monVol').oninput = e => { outCfg.monVol = +e.target.value; saveOut(); applyMonitor(); };
 $('#monMute').onclick = () => { outCfg.monMute = !outCfg.monMute; saveOut(); ensureCtx(); applyMonitor(); };
-$('#monVoice').onchange = e => { outCfg.monVoice = e.target.checked; saveOut(); applyMonitor(); };
+$('#selfOn').onchange = async e => {
+  outCfg.selfOn = e.target.checked; saveOut(); ensureCtx(); applyMonitor();
+  if (outCfg.selfOn) { if (!micStream && !(await micOn())) { outCfg.selfOn = false; saveOut(); applyMonitor(); return; } toast('Você está se ouvindo no fone'); }
+  else if (micStream && vs.fx === 'obs' && !rec) { micOff(true); micMsg('Em "Sem efeito", a Mesa não mexe na voz e o OBS usa o seu microfone normal.', false); }
+};
+$('#selfVol').oninput = e => { outCfg.selfVol = +e.target.value; saveOut(); applyMonitor(); };
 $('#outLoad').onclick = async () => {
   try { const st = await navigator.mediaDevices.getUserMedia({ audio: true }); st.getTracks().forEach(t => t.stop()); } catch (e) { toast('Permita o microfone para ver os nomes das saídas'); }
   listOutputs();
@@ -723,15 +959,100 @@ CHN.forEach(c => {
 });
 function toggleVoiceMute() { ch.voz.m = !ch.voz.m; CHN[0].mute.setAttribute('aria-pressed', ch.voz.m); store.set('ch.voz', ch.voz); applyChannels(); toast(ch.voz.m ? 'Voz no mudo' : 'Voz ligada'); }
 
+/* ---------- Teclas de atalho (editáveis) ---------- */
+const PAD_KEYS = '1234567890QWERTYUIOP'.split('').map(k => /\d/.test(k) ? 'Digit' + k : 'Key' + k);
+const FX_KEYS = ['KeyA', 'KeyS', 'KeyD', 'KeyF', 'KeyG', 'KeyH', 'KeyJ', 'KeyK', 'KeyL', 'KeyZ', 'KeyX', 'KeyC', 'KeyV', 'KeyB', 'KeyN', 'KeyM'];
+const KEY_NAMES = { Space: 'Espaço', Escape: 'Esc', Enter: 'Enter', Tab: 'Tab', Backquote: "'", Minus: '-', Equal: '=', BracketLeft: '´', BracketRight: '[', Semicolon: 'Ç', Quote: '~', Backslash: ']', Comma: ',', Period: '.', Slash: ';', IntlRo: '/', IntlBackslash: '\\',
+  NumpadAdd: 'Num +', NumpadSubtract: 'Num -', NumpadMultiply: 'Num *', NumpadDivide: 'Num /', NumpadDecimal: 'Num ,', NumpadComma: 'Num .', NumpadEnter: 'Num Enter',
+  ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→', Insert: 'Insert', Delete: 'Delete', Home: 'Home', End: 'End', PageUp: 'PgUp', PageDown: 'PgDn' };
+let binds = store.get('binds', null);
+const bindsFresh = !binds;
+if (!binds) binds = { stop: 'Escape', mute: 'Space' };
+const keyLabels = store.get('keyLabels', {});
+FX.forEach((f, i) => { if (binds['fx:' + f.id] === undefined) { const k = FX_KEYS[i]; binds['fx:' + f.id] = k && !Object.values(binds).includes(k) ? k : null; } });
+const saveBinds = () => { store.set('binds', binds); store.set('keyLabels', keyLabels); };
+function codeLabel(code) {
+  if (!code) return '';
+  if (/^Key[A-Z]$/.test(code)) return code.slice(3);
+  if (/^Digit\d$/.test(code)) return code.slice(5);
+  if (/^Numpad\d$/.test(code)) return 'Num ' + code.slice(6);
+  if (/^F\d+$/.test(code)) return code;
+  return KEY_NAMES[code] || keyLabels[code] || code;
+}
+function actionOf(code) { for (const a in binds) if (binds[a] === code) return a; return null; }
+function actionName(a) {
+  if (a === 'stop') return 'Parar todos os sons'; if (a === 'mute') return 'Mutar/desmutar a voz';
+  if (a.startsWith('pad:')) { const p = pads.find(x => x.id === a.slice(4)); return p ? 'Som: ' + p.name : 'Som'; }
+  if (a.startsWith('fx:')) { const f = FX.find(x => x.id === a.slice(3)); return f ? 'Efeito: ' + f.name : 'Efeito'; }
+  return a;
+}
+function runAction(a) {
+  if (a === 'stop') { stopAll(); return; }
+  if (a === 'mute') { ensureCtx(); toggleVoiceMute(); return; }
+  if (a.startsWith('pad:')) { const p = pads.find(x => x.id === a.slice(4)); if (p) playPad(p); return; }
+  if (a.startsWith('fx:')) { const f = FX.find(x => x.id === a.slice(3)); if (f) { chooseFx(f.id); toast('Efeito: ' + f.name); } }
+}
+function nextFreePadKey() { const used = new Set(Object.values(binds)); return PAD_KEYS.find(k => !used.has(k)) || null; }
+let capturing = null;
+function startCapture(action, btn) {
+  if (capturing) { capturing.btn.classList.remove('cap'); capturing.btn.textContent = codeLabel(binds[capturing.action]) || '—'; }
+  capturing = { action, btn }; btn.classList.add('cap'); btn.textContent = 'Aperte…';
+}
+function finishCapture(e) {
+  const { action } = capturing; capturing = null;
+  if (e.code === 'Escape') { refreshKeyUI(); toast('Tecla mantida'); return; }
+  if (e.code === 'Backspace' || e.code === 'Delete') { binds[action] = null; saveBinds(); refreshKeyUI(); toast(actionName(action) + ': sem tecla'); return; }
+  const code = e.code; if (!code) { refreshKeyUI(); return; }
+  if (!/^(Key|Digit|Numpad|F\d)/.test(code) && !KEY_NAMES[code] && e.key && e.key.length === 1) keyLabels[code] = e.key.toUpperCase();
+  const prev = actionOf(code); if (prev && prev !== action) binds[prev] = null;
+  binds[action] = code; saveBinds(); refreshKeyUI();
+  toast(prev && prev !== action ? `Tecla ${codeLabel(code)} agora é "${actionName(action)}" (saiu de "${actionName(prev)}")` : `Tecla ${codeLabel(code)}: ${actionName(action)}`);
+}
+function keyBtn(action) {
+  const b = el('button', { type: 'button', cls: 'btn sm kbtn', 'aria-label': 'Trocar tecla de ' + actionName(action), text: codeLabel(binds[action]) || '—' });
+  b.onclick = () => startCapture(action, b); return b;
+}
+const kOpen = {};
+function renderKeysCard() {
+  const box = $('#kList'); if (!box) return;
+  box.querySelectorAll('details').forEach(d => kOpen[d.dataset.g] = d.open); box.textContent = '';
+  const grp = (g, title, acts, open) => {
+    const list = el('div', { cls: 'kmap' }); acts.forEach(a => list.append(el('span', { text: actionName(a).replace(/^(Som|Efeito): /, '') }), keyBtn(a)));
+    const d = el('details', { cls: 'kgrp', 'data-g': g }, [el('summary', { text: `${title} (${acts.length})` }), list]); d.open = kOpen[g] ?? open; box.append(d);
+  };
+  grp('geral', 'Geral', ['stop', 'mute'], true);
+  grp('sons', 'Sons e memes', pads.map(p => 'pad:' + p.id), false);
+  grp('fx', 'Efeitos de voz', FX.map(f => 'fx:' + f.id), false);
+}
+function refreshKeyUI() { renderKeysCard(); renderPads(); renderFxButtons(); const ed = $('#editor'); if (!ed.hidden && ed.dataset.id) openEditor(ed.dataset.id, true); }
+$('#kReset').onclick = () => {
+  if (!$('#kReset').classList.contains('sure')) { const b = $('#kReset'); b.classList.add('sure'); b.textContent = 'Toque de novo para restaurar'; setTimeout(() => { b.classList.remove('sure'); b.textContent = 'Restaurar padrão'; }, 3000); return; }
+  binds = { stop: 'Escape', mute: 'Space' }; FX.forEach((f, i) => binds['fx:' + f.id] = FX_KEYS[i] || null);
+  pads.forEach((p, i) => binds['pad:' + p.id] = PAD_KEYS[i] || null); saveBinds(); $('#kReset').classList.remove('sure'); $('#kReset').textContent = 'Restaurar padrão'; refreshKeyUI(); toast('Teclas padrão restauradas');
+};
+
 /* ---------- Pads ---------- */
-const KEYS = '1234567890QWERTYUIOP';
 let pads = [];
 const buffers = new Map(), playing = new Map();
 const uid = () => 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 async function savePads() { await idbPut('kv', 'pads', pads); }
+const fromDefault = d => ({ id: d.id, name: d.name, color: d.color, vol: 80, src: 'synth:' + d.id });
+let padCat = store.get('padCat', 'all');
+function renderTabs() {
+  const t = $('#padTabs'); t.textContent = '';
+  CATS.forEach(c => { const n = c.id === 'all' ? pads.length : pads.filter(p => catOf(p) === c.id).length; if (!n && c.id !== 'all') return;
+    t.append(el('button', { type: 'button', 'aria-pressed': padCat === c.id, text: `${c.name} · ${n}`, onclick: () => { padCat = c.id; store.set('padCat', padCat); renderPads(); } })); });
+}
 async function loadPads() {
   const saved = await idbGet('kv', 'pads');
-  pads = Array.isArray(saved) && saved.length ? saved : DEFAULTS.map(d => ({ id: d.id, name: d.name, color: d.color, vol: 80, src: 'synth:' + d.id }));
+  const has = Array.isArray(saved) && saved.length;
+  const known = (await idbGet('kv', 'knownDefaults')) || (has ? ORIGINAL_DEFAULTS : []);
+  pads = has ? saved.slice() : DEFAULTS.map(fromDefault);
+  if (has) { const fresh = DEFAULTS.filter(d => !known.includes(d.id) && !pads.some(p => p.src === 'synth:' + d.id)); pads.push(...fresh.map(fromDefault)); if (fresh.length) { await savePads(); setTimeout(() => toast(`${fresh.length} sons novos adicionados`), 800); } }
+  await idbPut('kv', 'knownDefaults', DEFAULTS.map(d => d.id));
+  if (bindsFresh) pads.forEach((p, i) => binds['pad:' + p.id] = PAD_KEYS[i] || null);
+  else pads.forEach(p => { if (binds['pad:' + p.id] === undefined) binds['pad:' + p.id] = null; });
+  saveBinds(); renderKeysCard(); renderFxButtons();
   renderPads();
   for (const p of pads) {
     try {
@@ -743,8 +1064,11 @@ async function loadPads() {
 }
 function renderPads() {
   const g = $('#padGrid'); g.textContent = '';
-  pads.forEach((p, i) => {
-    const key = KEYS[i] || '';
+  if (padCat !== 'all' && !pads.some(p => catOf(p) === padCat)) padCat = 'all';
+  renderTabs();
+  pads.forEach(p => {
+    if (padCat !== 'all' && catOf(p) !== padCat) return;
+    const key = codeLabel(binds['pad:' + p.id]);
     const play = el('button', { type: 'button', cls: 'play', 'aria-label': 'Tocar ' + p.name, onclick: () => playPad(p) }, [key ? el('span', { cls: 'k', text: key }) : el('span'), el('span', { cls: 'n', text: p.name })]);
     const ed = el('button', { type: 'button', cls: 'ed', 'aria-label': 'Editar ' + p.name, text: '⋯', onclick: () => openEditor(p.id) });
     const pad = el('div', { cls: 'pad', 'data-id': p.id, style: '--c:' + p.color }, [play, ed, el('span', { cls: 'bar' })]);
@@ -781,8 +1105,9 @@ async function addPad(name, blob, buffer) {
   const p = { id: uid(), name: name.slice(0, 28), color: COLORS[pads.length % COLORS.length], vol: 80, src: 'blob' };
   if (!buffer) { try { buffer = await decode(blob); } catch (e) { toast('Não consegui ler esse arquivo de áudio'); return; } }
   buffers.set(p.id, buffer); pads.push(p);
-  await idbPut('blobs', p.id, blob); await savePads(); renderPads();
-  toast(`"${p.name}" adicionado${KEYS[pads.length - 1] ? ' na tecla ' + KEYS[pads.length - 1] : ''}`);
+  const k = nextFreePadKey(); binds['pad:' + p.id] = k; saveBinds();
+  await idbPut('blobs', p.id, blob); await savePads(); renderPads(); renderKeysCard();
+  toast(`"${p.name}" adicionado em "Meus sons"${k ? ' na tecla ' + codeLabel(k) : ''}`);
 }
 $('#addFile').onclick = () => $('#fileIn').click();
 $('#fileIn').onchange = async e => { for (const f of e.target.files) await addPad(f.name.replace(/\.[^.]+$/, ''), f); e.target.value = ''; };
@@ -796,17 +1121,17 @@ $('#recBtn').onclick = async () => {
   if (typeof MediaRecorder === 'undefined') { toast('Este navegador não grava áudio'); return; }
   const chunks = []; rec = new MediaRecorder(micStream);
   rec.ondataavailable = ev => ev.data.size && chunks.push(ev.data);
-  rec.onstop = async () => { rec = null; b.textContent = '● Gravar do microfone'; b.classList.remove('btn', 'live', 'rec-on'); b.className = 'btn sm'; recCount++; store.set('recCount', recCount); if (chunks.length) await addPad('Gravação ' + recCount, new Blob(chunks, { type: chunks[0].type })); };
+  rec.onstop = async () => { rec = null; if (vs.fx === 'obs' && !outCfg.selfOn && micStream) micOff(true);b.textContent = '● Gravar do microfone'; b.classList.remove('btn', 'live', 'rec-on'); b.className = 'btn sm'; recCount++; store.set('recCount', recCount); if (chunks.length) await addPad('Gravação ' + recCount, new Blob(chunks, { type: chunks[0].type })); };
   rec.start(); b.textContent = '■ Parar gravação'; b.className = 'btn sm live rec-on';
 };
 
 /* Editor de pad */
 let pendingDelete = false;
-function openEditor(id) {
+function openEditor(id, keepFocus) {
   const p = pads.find(x => x.id === id); if (!p) return; pendingDelete = false;
-  const ed = $('#editor'); ed.textContent = ''; ed.hidden = false;
+  const ed = $('#editor'); ed.textContent = ''; ed.hidden = false; ed.dataset.id = id;
   const nm = el('input', { type: 'text', id: 'edName', maxlength: 28 }); nm.value = p.name;
-  nm.oninput = () => { p.name = nm.value || 'Sem nome'; savePads(); renderPads(); };
+  nm.oninput = () => { p.name = nm.value || 'Sem nome'; savePads(); renderPads(); renderKeysCard(); };
   const sw = el('div', { cls: 'swatches', role: 'group', 'aria-label': 'Cor' });
   COLORS.forEach(c => sw.append(el('button', { type: 'button', style: '--c:' + c, 'aria-label': 'Cor ' + c, 'aria-pressed': p.color === c, onclick: () => { p.color = c; savePads(); renderPads(); sw.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.style.getPropertyValue('--c') === c)); } })));
   const volOut = el('output', { text: p.vol + '%' });
@@ -814,16 +1139,17 @@ function openEditor(id) {
   vol.oninput = () => { p.vol = +vol.value; volOut.textContent = p.vol + '%'; savePads(); const pl = playing.get(p.id); if (pl) pl.g.gain.value = Math.pow(p.vol / 100, 2) * 1.2; };
   const del = el('button', { type: 'button', cls: 'btn sm danger', text: 'Excluir', onclick: async () => {
     if (!pendingDelete) { pendingDelete = true; del.textContent = 'Toque de novo para excluir'; return; }
-    stopPad(p.id); pads = pads.filter(x => x.id !== p.id); buffers.delete(p.id); await idbDel('blobs', p.id); await savePads(); ed.hidden = true; renderPads(); toast('Som excluído');
+    stopPad(p.id); pads = pads.filter(x => x.id !== p.id); buffers.delete(p.id); delete binds['pad:' + p.id]; saveBinds(); await idbDel('blobs', p.id); await savePads(); ed.hidden = true; delete ed.dataset.id; renderPads(); renderKeysCard(); toast('Som excluído');
   } });
   ed.append(
-    el('div', { cls: 'head' }, [el('h3', { text: 'Editar som', style: 'font-size:15px' }), el('button', { type: 'button', cls: 'btn sm', text: 'Fechar', onclick: () => ed.hidden = true })]),
+    el('div', { cls: 'head' }, [el('h3', { text: 'Editar som', style: 'font-size:15px' }), el('button', { type: 'button', cls: 'btn sm', text: 'Fechar', onclick: () => { ed.hidden = true; delete ed.dataset.id; } })]),
     el('label', { for: 'edName' }, ['Nome', nm]),
     el('div', { style: 'display:grid;gap:4px;font-size:13px;color:var(--dim)' }, ['Cor', sw]),
     el('div', { cls: 'ctl' }, [el('label', { for: 'edVol', text: 'Volume' }), vol, volOut]),
+    el('div', { cls: 'row' }, [el('span', { cls: 'note', text: 'Tecla de atalho' }), keyBtn('pad:' + p.id)]),
     el('div', { cls: 'row' }, [el('button', { type: 'button', cls: 'btn sm', text: '▶ Testar', onclick: () => playPad(p) }), del])
   );
-  nm.focus();
+  if (!keepFocus) nm.focus();
 }
 
 /* ---------- Estúdio de vinheta ---------- */
@@ -921,14 +1247,18 @@ requestAnimationFrame(frame);
 
 /* ---------- Teclado ---------- */
 document.addEventListener('keydown', e => {
+  if (capturing) {
+    if (['Shift', 'Control', 'Alt', 'Meta', 'AltGraph', 'CapsLock'].includes(e.key)) return;
+    e.preventDefault(); e.stopPropagation(); finishCapture(e); return;
+  }
   if (e.key === 'Escape') { stopAll(); return; }
   const tag = (e.target.tagName || '').toLowerCase();
   if (tag === 'input' || tag === 'select' || tag === 'textarea' || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
-  const k = e.key.toUpperCase();
-  if (e.code === 'Space') { e.preventDefault(); ensureCtx(); toggleVoiceMute(); return; }
-  const pi = KEYS.indexOf(k); if (pi >= 0 && pads[pi] && k.length === 1) { e.preventDefault(); playPad(pads[pi]); return; }
-  const fx = FX.find(f => f.key === k); if (fx) { e.preventDefault(); chooseFx(fx.id); toast('Efeito: ' + fx.name); }
-});
+  const a = actionOf(e.code); if (!a) return;
+  if (tag === 'button' && (e.code === 'Space' || e.code === 'Enter') && a !== 'mute' && a !== 'stop') return;
+  e.preventDefault(); runAction(a);
+}, true);
+document.addEventListener('pointerdown', e => { if (capturing && !e.target.closest('.kbtn')) { capturing = null; refreshKeyUI(); } });
 
 /* ---------- Salvos: cenas do mixer, presets de voz, vinhetas ---------- */
 const saved = { mix: [], voz: [], vinheta: [] };
@@ -1111,7 +1441,7 @@ async function clientStart(code) {
   const pill = $('#rvPill'), msg = $('#rvMsg');
   const setSt = (t, on, m) => { pill.textContent = t; pill.classList.toggle('on', !!on); msg.textContent = m || ''; };
   $('#rvLeave').onclick = () => { location.href = siteBase(); };
-  let conn = null, cp = null, retryT = null, state = null, dragging = null;
+  let conn = null, cp = null, retryT = null, state = null, dragging = null, rvCat = store.get('rvCat', 'all');
   const send = o => { try { conn && conn.open && conn.send(o); } catch (e) {} };
   let wake = null; document.addEventListener('pointerdown', async () => { try { if (!wake && navigator.wakeLock) { wake = await navigator.wakeLock.request('screen'); wake.addEventListener('release', () => wake = null); } } catch (e) {} });
   $('#rvStop').onclick = () => send({ t: 'stopall' });
@@ -1119,8 +1449,13 @@ async function clientStart(code) {
     if (!state) return;
     let w = $('#rvWarn'); if (!w) { w = el('p', { id: 'rvWarn', cls: 'rvwarn' }); $('#rvPads').before(w); }
     w.hidden = state.audioOn !== false; w.textContent = 'A Mesa no PC está em espera. Clique em "Ativar Mesa" no PC uma vez para os sons tocarem.';
+    const tb = $('#rvTabs'); tb.textContent = '';
+    if (rvCat !== 'all' && !state.pads.some(p => p.cat === rvCat)) rvCat = 'all';
+    CATS.forEach(cc => { const n = cc.id === 'all' ? state.pads.length : state.pads.filter(p => p.cat === cc.id).length; if (!n && cc.id !== 'all') return;
+      tb.append(el('button', { type: 'button', 'aria-pressed': rvCat === cc.id, text: cc.name + ' · ' + n, onclick: () => { rvCat = cc.id; store.set('rvCat', rvCat); render(); } })); });
     const g = $('#rvPads'); g.textContent = '';
     state.pads.forEach(p => {
+      if (rvCat !== 'all' && p.cat && p.cat !== rvCat) return;
       const on = state.playing.includes(p.id);
       g.append(el('div', { cls: 'pad' + (on ? ' on' : '') + (p.ready ? '' : ' loading'), style: '--c:' + p.color }, [
         el('button', { type: 'button', cls: 'play', 'aria-label': 'Tocar ' + p.name, onclick: () => send({ t: 'play', id: p.id }) }, [el('span'), el('span', { cls: 'n', text: p.name })])
