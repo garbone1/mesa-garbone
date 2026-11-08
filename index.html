@@ -52,7 +52,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 @media (max-width:1100px){
   .grid{display:flex;flex-direction:column;align-items:stretch}
   .col{display:contents}
-  .mixer{order:1}.output{order:2}.remote{order:2}.pads{order:2}.voice{order:3}.studio{order:4}.backup{order:5}.help{order:6}
+  .mixer{order:1}.output{order:2}.obs{order:2}.remote{order:2}.pads{order:2}.voice{order:3}.studio{order:4}.backup{order:5}.help{order:6}
 }
 
 /* Canais */
@@ -152,6 +152,9 @@ select{background:var(--bg);border:1px solid var(--line);border-radius:7px;paddi
 .rvpads{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
 .rvpads .pad{min-height:104px}
 .btn.big{min-height:56px;justify-content:center;font-weight:600;font-size:16px}
+.arm{display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:space-between;background:color-mix(in srgb,var(--accent) 14%,var(--panel));border:1px solid var(--accent);border-radius:12px;padding:12px 14px;margin-bottom:16px}
+.arm p{margin:0;font-size:14px}
+.rvwarn{background:color-mix(in srgb,var(--hot) 16%,var(--panel));border:1px solid var(--hot);border-radius:10px;padding:10px 12px;font-size:14px;margin:0}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:10px;font-weight:600;font-size:14px;max-width:calc(100% - 32px);z-index:20}
 </style>
 
@@ -166,6 +169,10 @@ select{background:var(--bg);border:1px solid var(--line);border-radius:7px;paddi
       <button id="stopAll" class="btn danger" type="button">Parar sons <kbd>Esc</kbd></button>
     </div>
   </header>
+  <div id="armBar" class="arm">
+    <p><b>Mesa em espera.</b> O navegador só libera som e microfone depois de um clique aqui no PC. Clique uma vez quando abrir a Mesa; depois ela fica ativa em segundo plano, inclusive para o celular.</p>
+    <button id="armBtn" class="btn primary" type="button">Ativar Mesa</button>
+  </div>
 
   <main class="grid">
    <div class="col">
@@ -173,6 +180,21 @@ select{background:var(--bg);border:1px solid var(--line);border-radius:7px;paddi
       <h2 id="mixT">Mixer</h2>
       <div id="channels"></div>
       <div class="saver" data-kind="mix"></div>
+    </section>
+    <section class="card obs" aria-labelledby="obsT">
+      <div class="head"><h2 id="obsT">Ligação com o OBS</h2><span id="obsPill" class="pill">Desligada</span></div>
+      <p class="note">Com a ligação ativa, a Mesa muta o seu microfone no OBS quando você liga um efeito de voz e desmuta quando volta para "Sem efeito". Nada mais no OBS é alterado.</p>
+      <label class="check"><input type="checkbox" id="obsOn"> Ligar ao OBS automaticamente</label>
+      <div class="ctl" style="grid-template-columns:110px minmax(0,1fr)">
+        <label for="obsPass">Senha do OBS</label>
+        <input type="password" id="obsPass" autocomplete="off" placeholder="Senha do servidor WebSocket" style="background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:7px 10px;color:var(--fg);min-width:0">
+      </div>
+      <div class="ctl" style="grid-template-columns:110px minmax(0,1fr)">
+        <label for="obsMic">Seu microfone no OBS</label>
+        <select id="obsMic"><option value="">Conecte para listar</option></select>
+      </div>
+      <label class="check" style="font-size:13px"><input type="checkbox" id="obsAuto"> Mutar esse microfone no OBS quando um efeito estiver ligado</label>
+      <p class="note">No OBS: Ferramentas → Configurações do servidor WebSocket → "Ativar servidor WebSocket". A senha aparece em "Mostrar informações de conexão".</p>
     </section>
     <section class="card output" aria-labelledby="outT">
       <h2 id="outT">Saída e retorno</h2>
@@ -330,7 +352,7 @@ let bcastT = null;
 function broadcastSoon() { if (!conns.size || bcastT) return; bcastT = setTimeout(() => { bcastT = null; sendState(); }, 60); }
 function sendState(only) {
   if (typeof pads === 'undefined') return;
-  const msg = { t: 'state', pads: pads.map(p => ({ id: p.id, name: p.name, color: p.color, ready: buffers.has(p.id) })), playing: [...playing.keys()], fx: vs.fx, ch, fxList: FX.map(f => ({ id: f.id, name: f.name })) };
+  const msg = { t: 'state', pads: pads.map(p => ({ id: p.id, name: p.name, color: p.color, ready: buffers.has(p.id) })), playing: [...playing.keys()], fx: vs.fx, ch, fxList: FX.map(f => ({ id: f.id, name: f.name })), audioOn: !!(ctx && ctx.state === 'running') };
   (only ? [only] : [...conns]).forEach(c => { try { c.open && c.send(msg); } catch (e) {} });
 }
 const el = (tag, props = {}, kids = []) => { const e = document.createElement(tag); for (const k in props) { if (k === 'text') e.textContent = props[k]; else if (k === 'cls') e.className = props[k]; else if (k.startsWith('on')) e.addEventListener(k.slice(2), props[k]); else e.setAttribute(k, props[k]); } kids.forEach(c => e.append(c)); return e; };
@@ -500,7 +522,7 @@ function ensureCtx() {
   ctx.onstatechange = updateEngine; updateEngine();
   return ctx;
 }
-function updateEngine() { const p = $('#engine'); const on = ctx && ctx.state === 'running'; p.classList.toggle('on', !!on); p.textContent = on ? (micStream ? 'Áudio ligado · mic ativo' : 'Áudio ligado') : 'Áudio aguardando o 1º toque'; }
+function updateEngine() { const p = $('#engine'); const on = ctx && ctx.state === 'running'; const ab = $('#armBar'); if (ab) ab.hidden = !!on || !!RCODE; broadcastSoon(); p.classList.toggle('on', !!on); p.textContent = on ? (micStream ? 'Áudio ligado · mic ativo' : 'Áudio ligado') : 'Áudio aguardando o 1º toque'; }
 ['pointerdown', 'keydown'].forEach(ev => document.addEventListener(ev, () => { if (!RCODE) ensureCtx(); }, { capture: true }));
 
 function applyChannels() { broadcastSoon(); if (!ctx) return; for (const k in ch) N[k].gain.setTargetAtTime(gainOf(ch[k]), ctx.currentTime, .015); }
@@ -568,9 +590,13 @@ async function chooseFx(id) {
   ensureCtx(); setFx(id);
   if (id === 'obs') {
     if (micStream) micOff(true);
-    micMsg('Sem efeito: a Mesa não mexe na sua voz. Deixe o microfone ligado no OBS normalmente.', false);
-  } else if (!micStream) {
-    if (await micOn()) micMsg('Efeito "' + FX.find(f => f.id === id).name + '" ligado. Desligue o microfone no OBS para a voz não sair duplicada.', true);
+    obsSetMicMute(false);
+    micMsg('Sem efeito: a Mesa não mexe na sua voz. O OBS usa o seu microfone normal.', false);
+  } else {
+    if (!micStream && !(await micOn())) return;
+    const auto = obsReady && obsCfg.auto && obsCfg.mic;
+    obsSetMicMute(true);
+    micMsg('Efeito "' + FX.find(f => f.id === id).name + '" ligado. ' + (auto ? 'O microfone do OBS foi mutado automaticamente.' : 'Mute o microfone no OBS para a voz não sair duplicada.'), !auto);
   }
 }
 function renderFxButtons() {
@@ -600,7 +626,7 @@ async function micOn() {
 function micOff(quiet) {
   if (micSrc) { try { micSrc.disconnect(); } catch (e) {} micSrc = null; }
   if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
-  if (!quiet) { micMsg('Microfone desligado na Mesa. A voz fica só no OBS.', false); setFx('obs'); }
+  if (!quiet) { micMsg('Microfone desligado na Mesa. A voz fica só no OBS.', false); setFx('obs'); obsSetMicMute(false); }
   updateMicBtn(); updateEngine();
 }
 function micMsg(t, warn) { const m = $('#micMsg'); m.textContent = t; m.classList.toggle('warn', !!warn); }
@@ -1091,6 +1117,8 @@ async function clientStart(code) {
   $('#rvStop').onclick = () => send({ t: 'stopall' });
   function render() {
     if (!state) return;
+    let w = $('#rvWarn'); if (!w) { w = el('p', { id: 'rvWarn', cls: 'rvwarn' }); $('#rvPads').before(w); }
+    w.hidden = state.audioOn !== false; w.textContent = 'A Mesa no PC está em espera. Clique em "Ativar Mesa" no PC uma vez para os sons tocarem.';
     const g = $('#rvPads'); g.textContent = '';
     state.pads.forEach(p => {
       const on = state.playing.includes(p.id);
@@ -1136,12 +1164,84 @@ async function clientStart(code) {
   });
 }
 
+/* ---------- Ativar Mesa ---------- */
+$('#armBtn').onclick = async () => {
+  ensureCtx(); try { await ctx.resume(); } catch (e) {}
+  try { const st = await navigator.mediaDevices.getUserMedia({ audio: true }); st.getTracks().forEach(t => t.stop()); } catch (e) {}
+  listOutputs(); updateEngine(); toast('Mesa ativa');
+};
+
+/* ---------- Ligação com o OBS (obs-websocket 5) ---------- */
+const obsCfg = Object.assign({ on: false, url: 'ws://127.0.0.1:4455', pass: '', mic: '', auto: true }, store.get('obs', {}));
+const saveObs = () => store.set('obs', obsCfg);
+let obsWs = null, obsReady = false, obsSeq = 0; const obsPend = new Map();
+function obsStatus(t, on) { const p = $('#obsPill'); p.textContent = t; p.classList.toggle('on', !!on); }
+async function b64sha(str) { const h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str)); let b = ''; new Uint8Array(h).forEach(x => b += String.fromCharCode(x)); return btoa(b); }
+function obsConnect() {
+  if (obsWs) { const o = obsWs; obsWs = null; try { o.close(); } catch (e) {} }
+  obsReady = false; if (!obsCfg.on) { obsStatus('Desligada'); return; }
+  obsStatus('Conectando…');
+  let ws; try { ws = new WebSocket(obsCfg.url); } catch (e) { obsStatus('Não conectou'); return; }
+  obsWs = ws;
+  ws.onmessage = async ev => {
+    let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
+    if (m.op === 0) {
+      const d = { rpcVersion: 1, eventSubscriptions: 0 };
+      if (m.d.authentication) {
+        if (!obsCfg.pass) { obsStatus('Falta a senha'); try { ws.close(); } catch (e) {} return; }
+        const secret = await b64sha(obsCfg.pass + m.d.authentication.salt);
+        d.authentication = await b64sha(secret + m.d.authentication.challenge);
+      }
+      ws.send(JSON.stringify({ op: 1, d }));
+    } else if (m.op === 2) { obsReady = true; obsStatus('Conectada', true); obsLoadInputs(); }
+    else if (m.op === 7) { const p = obsPend.get(m.d.requestId); if (p) { obsPend.delete(m.d.requestId); m.d.requestStatus.result ? p.res(m.d.responseData || {}) : p.rej(m.d.requestStatus); } }
+  };
+  ws.onclose = ev => {
+    if (obsWs !== ws) return; obsReady = false;
+    if (ev.code === 4009) { obsStatus('Senha errada'); return; }
+    if (!obsCfg.pass && ev.code !== 1000) obsStatus('Falta a senha'); else obsStatus('OBS fechado');
+    if (obsCfg.on) setTimeout(() => { if (obsWs === ws && obsCfg.on) obsConnect(); }, 5000);
+  };
+  ws.onerror = () => {};
+}
+function obsReq(type, data) {
+  return new Promise((res, rej) => {
+    if (!obsReady || !obsWs) return rej(new Error('off'));
+    const id = 'm' + (++obsSeq); obsPend.set(id, { res, rej });
+    try { obsWs.send(JSON.stringify({ op: 6, d: { requestType: type, requestId: id, requestData: data || {} } })); } catch (e) { obsPend.delete(id); return rej(e); }
+    setTimeout(() => { if (obsPend.has(id)) { obsPend.delete(id); rej(new Error('timeout')); } }, 4000);
+  });
+}
+async function obsLoadInputs() {
+  try {
+    const r = await obsReq('GetInputList');
+    const ins = (r.inputs || []).filter(i => /input_capture|dshow|coreaudio|pulse|alsa/.test(i.inputKind || '') || !i.inputKind);
+    const sel = $('#obsMic'); sel.textContent = '';
+    sel.append(el('option', { value: '', text: 'Escolha o microfone' }));
+    ins.forEach(i => sel.append(el('option', { value: i.inputName, text: i.inputName })));
+    if (!obsCfg.mic) { const g = ins.find(i => /wasapi_input_capture/.test(i.inputKind || '')); if (g) { obsCfg.mic = g.inputName; saveObs(); } }
+    sel.value = obsCfg.mic;
+    if (vs.fx === 'obs') obsSetMicMute(false);
+  } catch (e) {}
+}
+async function obsSetMicMute(m) {
+  if (!obsReady || !obsCfg.mic || !obsCfg.auto) return;
+  try { await obsReq('SetInputMute', { inputName: obsCfg.mic, inputMuted: m }); } catch (e) { toast('Não consegui mudar o microfone no OBS'); }
+}
+$('#obsOn').checked = obsCfg.on; $('#obsAuto').checked = obsCfg.auto; $('#obsPass').value = obsCfg.pass;
+$('#obsOn').onchange = e => { obsCfg.on = e.target.checked; saveObs(); obsConnect(); };
+$('#obsAuto').onchange = e => { obsCfg.auto = e.target.checked; saveObs(); if (!obsCfg.auto) { obsCfg.auto = true; obsSetMicMute(false).finally(() => { obsCfg.auto = false; }); } };
+$('#obsPass').onchange = e => { obsCfg.pass = e.target.value; saveObs(); if (obsCfg.on) obsConnect(); };
+$('#obsMic').onchange = e => { obsSetMicMute(false); obsCfg.mic = e.target.value; saveObs(); };
+
 // encerra esta instância se a página for trocada por uma versão nova sem recarregar
 window.__mesaCleanup = () => {
   try { if (seqTimer && seqTimer !== 'ending') clearInterval(seqTimer); clearTimeout(seqEndT); seqTimer = null; } catch (e) {}
   try { if (micStream) micStream.getTracks().forEach(t => t.stop()); } catch (e) {}
   try { if (rec) rec.stop(); } catch (e) {}
   try { if (peer) peer.destroy(); } catch (e) {}
+  try { if (obsReady && obsCfg.mic && obsCfg.auto && vs.fx !== 'obs') obsWs.send(JSON.stringify({ op: 6, d: { requestType: 'SetInputMute', requestId: 'bye', requestData: { inputName: obsCfg.mic, inputMuted: false } } })); } catch (e) {}
+  try { if (obsWs) { const o = obsWs; obsWs = null; o.close(); } } catch (e) {}
   try { if (ctx) ctx.close(); } catch (e) {}
 };
 window.addEventListener('pagehide', () => window.__mesaCleanup && window.__mesaCleanup());
@@ -1151,6 +1251,8 @@ else {
   loadPads();
   loadSaved();
   if (store.get('remoteOn', false)) hostStart(false);
+  if (obsCfg.on) obsConnect();
+  updateEngine();
 }
 })();
 </script>
