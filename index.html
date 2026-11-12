@@ -630,15 +630,86 @@ const DEFAULTS = [
       br(0, 392, .12); br(.16, 392, .12); br(.32, 523, .5); br(.9, 494, .14); br(1.08, 523, .14); br(1.26, 659, 1.3); br(1.26, 523, 1.3); br(1.26, 392, 1.3);
       kick(c, out, .32); kick(c, out, 1.26); crash(c, out, 1.26);
   } },
+  /* ---- mais memes ---- */
+  { id: 'tum', name: 'Tum (boom de meme)', color: COLORS[4], dur: 1.6, render(c, out) {
+      const o = c.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(110, 0); o.frequency.exponentialRampToValueAtTime(45, .5); o.connect(envGain(c, 0, .004, 1.3, 1)).connect(out); o.start(0); o.stop(1.5);
+      [196, 233, 277].forEach(f => { const s2 = c.createOscillator(); s2.type = 'triangle'; s2.frequency.value = f; s2.connect(envGain(c, 0, .004, 1.1, .12)).connect(out); s2.start(0); s2.stop(1.3); });
+      noiseHit(c, out, 0, .12, .5, 'lowpass', 1200);
+  } },
+  { id: 'cano', name: 'Cano de metal caindo', color: COLORS[3], dur: 2.4, render(c, out) {
+      [[0, 1], [.32, .55], [.5, .3], [.6, .15]].forEach(([t, v]) => { [523, 1220, 1907, 2840, 3990].forEach((f, i) => tone(c, out, t, f * (1 + Math.random() * .01), 1.6 - i * .2, 'sine', v * [.28, .22, .16, .1, .07][i])); noiseHit(c, out, t, .04, v * .8, 'highpass', 2000); });
+  } },
+  { id: 'braaam', name: 'BRAAAM (trailer)', color: COLORS[1], dur: 3.6, render(c, out) {
+      const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(300, 0); lp.frequency.linearRampToValueAtTime(1400, .4); lp.frequency.linearRampToValueAtTime(500, 3.2); lp.connect(held(c, out, 0, 3, .2));
+      [55, 55.4, 110, 110.6, 164.8].forEach(f => { const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.connect(lp); o.start(0); o.stop(3.3); }); kick(c, out, 0, 1); noiseHit(c, out, 0, 2.5, .2, 'lowpass', 300);
+  } },
+  { id: 'tapestop', name: 'Continua… (freada de fita)', color: COLORS[4], dur: 2.4, render(c, out) {
+      const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(220, 0); o.frequency.setValueAtTime(220, .6); o.frequency.exponentialRampToValueAtTime(25, 1.9);
+      const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(3000, .6); lp.frequency.exponentialRampToValueAtTime(150, 1.9); o.connect(lp).connect(held(c, out, 0, 1.85, .2)); o.start(0); o.stop(2.1);
+      [0, .15, .3, .45].forEach(t => kick(c, out, t, .6));
+  } },
+  { id: 'rufar', name: 'Rufar de tambor', color: COLORS[0], dur: 3.4, render(c, out) {
+      for (let t = 0; t < 2.4; t += .045) noiseHit(c, out, t, .06, .15 + t * .12, 'bandpass', 1800, 1.5);
+      kick(c, out, 2.45, 1); crash(c, out, 2.45); noiseHit(c, out, 2.45, .2, .7, 'highpass', 1200);
+  } },
+  { id: 'pum', name: 'Pum', color: COLORS[5], dur: 1.4, render(c, out) {
+      const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(95, 0); o.frequency.linearRampToValueAtTime(70, .8);
+      const am = c.createGain(); am.gain.value = .5; const l = c.createOscillator(); l.type = 'square'; l.frequency.setValueAtTime(28, 0); l.frequency.linearRampToValueAtTime(16, .8); const lg = c.createGain(); lg.gain.value = .5; l.connect(lg).connect(am.gain);
+      const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 420; lp.Q.value = 3;
+      o.connect(lp).connect(am).connect(held(c, out, 0, .75, .7)); o.start(0); l.start(0); o.stop(1); l.stop(1); noiseHit(c, out, 0, .8, .06, 'lowpass', 500);
+  } },
+  { id: 'bonk', name: 'Bonk', color: COLORS[0], dur: 1.2, render(c, out) {
+      tone(c, out, 0, 880, .08, 'square', .25); noiseHit(c, out, 0, .05, .7, 'bandpass', 1400, 4); tone(c, out, 0, 330, .4, 'triangle', .4);
+      const o = c.createOscillator(); o.frequency.setValueAtTime(500, .02); o.frequency.exponentialRampToValueAtTime(140, .9); o.connect(envGain(c, .02, .01, .8, .25)).connect(out); o.start(.02); o.stop(1);
+  } },
+  { id: 'acertou', name: 'Acertou!', color: COLORS[2], dur: 1.3, render(c, out) { bell(c, out, 0, 1047, .25, .8); bell(c, out, .12, 1568, .25, 1); } },
+  { id: 'buzzer', name: 'Errado (buzina de quiz)', color: COLORS[1], dur: 1.2, render(c, out) {
+      const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1800; lp.connect(held(c, out, 0, .9, .18)); [110, 116].forEach(f => { const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.connect(lp); o.start(0); o.stop(1.05); });
+  } },
+  { id: 'disco', name: 'Arranhão de disco', color: COLORS[3], dur: .9, render(c, out) {
+      const s2 = c.createBufferSource(); s2.buffer = noiseBuf(c); const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 6;
+      bp.frequency.setValueAtTime(600, 0); bp.frequency.exponentialRampToValueAtTime(3000, .12); bp.frequency.exponentialRampToValueAtTime(500, .28); bp.frequency.exponentialRampToValueAtTime(2500, .42); bp.frequency.exponentialRampToValueAtTime(300, .6);
+      s2.connect(bp).connect(held(c, out, 0, .58, 1.4)); s2.start(0); s2.stop(.7);
+  } },
+  { id: 'foto', name: 'Foto (clique)', color: COLORS[3], dur: .6, render(c, out) { noiseHit(c, out, 0, .03, .7, 'highpass', 3000); noiseHit(c, out, .09, .05, .5, 'bandpass', 2500, 2); } },
+  { id: 'estalo', name: 'Estalo de dedo', color: COLORS[5], dur: .4, render(c, out) { noiseHit(c, out, 0, .05, .9, 'bandpass', 2600, 3); tone(c, out, 0, 1900, .03, 'sine', .2); } },
+  { id: 'elevador', name: 'Música de espera', color: COLORS[4], dur: 6.2, render(c, out) {
+      const ch = [[262, 330, 392, 494], [220, 262, 330, 392], [294, 349, 440, 523], [196, 247, 294, 349]];
+      ch.forEach((cd, i) => { const t = i * 1.5; cd.forEach(f => tone(c, out, t, f, 1.4, 'sine', .06)); tone(c, out, t, cd[0] / 2, 1.4, 'triangle', .14); [0, .375, .75, 1.125].forEach((d, k) => bell(c, out, t + d, cd[(k + 1) % 4] * 2, .06, .4)); });
+  } },
+  { id: 'misterio', name: 'Mistério', color: COLORS[4], dur: 4.4, render(c, out) {
+      [[659, 0], [988, .5], [932, 1], [988, 1.5], [1175, 2], [988, 2.6]].forEach(([f, t]) => bell(c, out, t, f, .12, 1.4));
+      const o = c.createOscillator(); o.type = 'sine'; o.frequency.value = 82; o.connect(held(c, out, 0, 3.8, .2)); o.start(0); o.stop(4.1);
+  } },
+  { id: 'vuvuzela', name: 'Vuvuzela', color: COLORS[2], dur: 2.6, render(c, out) {
+      const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.value = 233; const l = c.createOscillator(); l.frequency.value = 5.5; const lg = c.createGain(); lg.gain.value = 3; l.connect(lg).connect(o.frequency);
+      const bp = c.createBiquadFilter(); bp.type = 'peaking'; bp.frequency.value = 1100; bp.gain.value = 8; o.connect(bp).connect(held(c, out, 0, 2.3, .16)); o.start(0); l.start(0); o.stop(2.5); l.stop(2.5);
+  } },
+  { id: 'rojao', name: 'Rojão', color: COLORS[1], dur: 3.4, render(c, out) {
+      const o = c.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(900, 0); o.frequency.exponentialRampToValueAtTime(3200, 1); o.connect(held(c, out, 0, 1, .08)); o.start(0); o.stop(1.1);
+      noiseHit(c, out, 0, 1, .12, 'highpass', 4000);
+      [1.05, 1.5, 1.8, 2.2, 2.45].forEach((t, i) => { kick(c, out, t, i ? .7 : 1); noiseHit(c, out, t, .5, i ? .5 : .9, 'lowpass', 3000); });
+  } },
+  { id: 'funk', name: 'Batida de funk', color: COLORS[1], dur: 4.4, render(c, out) {
+      const sd = .125; const pat = [1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0];
+      for (let r = 0; r < 2; r++) for (let i = 0; i < 16; i++) { const t = (r * 16 + i) * sd; if (pat[i]) kick(c, out, t, 1); if (i === 4 || i === 12) clap(c, out, t); if (i % 2 === 1) hat(c, out, t); if (i === 7 || i === 14) tone(c, out, t, 180, .08, 'triangle', .3); }
+  } },
+  { id: 'phonk', name: 'Phonk (sino)', color: COLORS[4], dur: 4.4, render(c, out) {
+      const sd = .13, mel = [784, 0, 784, 698, 0, 784, 932, 0, 784, 0, 698, 622, 0, 587, 622, 0];
+      const cow = (t, f) => { [f, f * 1.48].forEach(x => tone(c, out, t, x, .18, 'square', .06)); };
+      for (let r = 0; r < 2; r++) for (let i = 0; i < 16; i++) { const t = (r * 16 + i) * sd; if (mel[i]) cow(t, mel[i]); if (i % 8 === 0) { const o = c.createOscillator(); o.frequency.setValueAtTime(65, t); o.frequency.exponentialRampToValueAtTime(40, t + .6); o.connect(envGain(c, t, .005, .7, .9)).connect(out); o.start(t); o.stop(t + .8); } if (i % 8 === 4) clap(c, out, t); hat(c, out, t); }
+  } },
 ];
 function shaperCurve2(k) { const n = 512, cv = new Float32Array(n); for (let i = 0; i < n; i++) { const x = i * 2 / n - 1; cv[i] = (1 + k) * x / (1 + k * Math.abs(x)); } return cv; }
 const CATS = [
-  { id: 'all', name: 'Todos' }, { id: 'memes', name: 'Memes e reações' }, { id: 'jogo', name: 'Jogo' }, { id: 'rua', name: 'Futebol e rua' }, { id: 'vinheta', name: 'Vinhetas' }, { id: 'meus', name: 'Meus sons' },
+  { id: 'all', name: 'Todos' }, { id: 'memes', name: 'Memes e reações' }, { id: 'jogo', name: 'Jogo' }, { id: 'rua', name: 'Futebol e rua' }, { id: 'vinheta', name: 'Vinhetas e batidas' }, { id: 'meus', name: 'Meus sons' },
 ];
 const CAT_OF = {
   horn: 'memes', errou: 'memes', roll: 'memes', plim: 'memes', badum: 'memes', drama: 'memes', aplausos: 'memes', torcida: 'rua', grilos: 'memes', tique: 'memes', censura: 'memes', boing: 'memes', pop: 'memes', whoosh: 'memes', kaching: 'memes', notif: 'memes', coracao: 'memes', suspense: 'memes',
   missao: 'jogo', boom: 'jogo', moeda: 'jogo', pulo: 'jogo', levelup: 'jogo', powerup: 'jogo', gameover: 'jogo', laser: 'jogo', tiro: 'jogo', rajada: 'jogo', morri: 'jogo', teleporte: 'jogo', glitch: 'jogo',
   gol: 'rua', apito: 'rua', sino: 'rua', carro: 'rua', freada: 'rua', sirene: 'rua', ambulancia: 'rua', heli: 'rua', trovao: 'rua', vidro: 'rua', alarme: 'rua',
+  tum: 'memes', cano: 'memes', braaam: 'memes', tapestop: 'memes', rufar: 'memes', pum: 'memes', bonk: 'memes', acertou: 'memes', buzzer: 'memes', disco: 'memes', foto: 'memes', estalo: 'memes', misterio: 'memes',
+  elevador: 'vinheta', funk: 'vinheta', phonk: 'vinheta', vuvuzela: 'rua', rojao: 'rua',
   abertura: 'vinheta', intervalo: 'vinheta', encerramento: 'vinheta', vitoria: 'vinheta',
 };
 const ORIGINAL_DEFAULTS = ['horn', 'gol', 'roll', 'errou', 'missao', 'sirene', 'plim', 'boom'];
@@ -668,6 +739,7 @@ const ch = {
 };
 const vs = Object.assign({ gain: 100, low: 2, high: 3, gate: -80, comp: 40, ns: true, fx: 'obs' }, store.get('voice', {}));
 if (!store.get('fxv2', false)) { vs.fx = 'obs'; store.set('fxv2', true); }
+if (vs.fx === 'normal') vs.fx = 'obs';
 const gainOf = c => c.m ? 0 : Math.pow(c.v / 100, 2);
 
 const PITCH_SRC = `class P extends AudioWorkletProcessor{static get parameterDescriptors(){return[{name:'ratio',defaultValue:1,minValue:.25,maxValue:4}]}
@@ -721,14 +793,17 @@ function applyVoice() {
 
 /* ---------- Efeitos de voz ---------- */
 const FX = [
-  { id: 'obs', name: 'Sem efeito (voz do OBS)' }, { id: 'normal', name: 'Normal' }, { id: 'grave', name: 'Voz grossa' },
+  { id: 'obs', name: 'Sem efeito (voz do OBS)' }, { id: 'mulher', name: 'Voz de mulher' }, { id: 'grave', name: 'Voz grossa' },
   { id: 'fina', name: 'Esquilo' }, { id: 'robo', name: 'Robô' }, { id: 'radio', name: 'Rádio da polícia' }, { id: 'eco', name: 'Eco' }, { id: 'caverna', name: 'Caverna' },
   { id: 'monstro', name: 'Monstro' }, { id: 'crianca', name: 'Criança' }, { id: 'alien', name: 'Alienígena' }, { id: 'telefone', name: 'Telefone' },
   { id: 'megafone', name: 'Megafone' }, { id: 'estadio', name: 'Estádio' }, { id: 'banheiro', name: 'Banheiro' }, { id: 'bebado', name: 'Bêbado' },
   { id: 'fantasma', name: 'Fantasma' }, { id: 'distorcido', name: 'Distorcido' }, { id: 'coro', name: 'Coral (várias vozes)' }, { id: 'demonio', name: 'Demônio' },
+  { id: 'gigante', name: 'Gigante' }, { id: 'anjo', name: 'Anjo' }, { id: 'zumbi', name: 'Zumbi' }, { id: 'agua', name: 'Debaixo d’água' },
+  { id: 'sussurro', name: 'Sussurro' }, { id: 'astronauta', name: 'Astronauta' }, { id: 'vilao', name: 'Vilão mascarado' }, { id: 'ovelha', name: 'Voz tremida' },
 ];
 let fxNodes = [];
 function impulse(sec = 2.6) { const len = ctx.sampleRate * sec, b = ctx.createBuffer(2, len, ctx.sampleRate); for (let c = 0; c < 2; c++) { const d = b.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3); } return b; }
+function absCurve() { const n = 1024, cv = new Float32Array(n); for (let i = 0; i < n; i++) cv[i] = Math.abs(i * 2 / n - 1); return cv; }
 function shaperCurve(k) { const n = 1024, cv = new Float32Array(n); for (let i = 0; i < n; i++) { const x = i * 2 / n - 1; cv[i] = (1 + k) * x / (1 + k * Math.abs(x)); } return cv; }
 // mudança de tom sem AudioWorklet (funciona em navegadores que bloqueiam o worklet)
 function spPitch(ratio) {
@@ -749,7 +824,15 @@ const MIXP = (def, max = 1.5, n = 'Quantidade de efeito') => ({ k: 'mix', n, min
 const SIZE = (min, max, def) => ({ k: 'size', n: 'Tamanho do lugar', min, max, step: .1, def, fmt: v => v.toFixed(1) + ' s' });
 const DRIVE = (max, def) => ({ k: 'drive', n: 'Distorção', min: 0, max, step: 1, def, fmt: v => Math.round(v) });
 const FXP = {
-  normal: [],
+  mulher: [PITCH(1.15, 1.8, 1.4), { k: 'body', n: 'Tirar o grave', min: 80, max: 400, step: 5, def: 190, fmt: v => v + ' Hz' }, { k: 'bright', n: 'Brilho', min: 0, max: 12, step: .5, def: 5, fmt: v => '+' + v + ' dB' }],
+  gigante: [PITCH(.3, .7, .45), SIZE(1, 8, 4.5), MIXP(.6)],
+  anjo: [PITCH(1, 1.6, 1.2), SIZE(2, 8, 5), MIXP(.8, 1.5)],
+  zumbi: [PITCH(.5, .95, .72), DRIVE(60, 18), { k: 'trem', n: 'Rosnado', min: 0, max: 40, step: 1, def: 22, fmt: v => v + ' Hz' }],
+  agua: [{ k: 'cut', n: 'Fundura', min: 200, max: 1200, step: 10, def: 450, fmt: v => v + ' Hz' }, { k: 'wob', n: 'Ondulação', min: 0, max: .01, step: .0005, def: .004, fmt: v => Math.round(v / .01 * 100) + '%' }],
+  sussurro: [{ k: 'air', n: 'Quantidade de ar', min: .5, max: 6, step: .1, def: 2.5, fmt: v => Math.round(v / 6 * 100) + '%' }, { k: 'dry', n: 'Voz original', min: 0, max: .6, step: .01, def: .12, fmt: v => Math.round(v * 100) + '%' }],
+  astronauta: [MIXP(.35, 1, 'Eco do capacete'), DRIVE(30, 8)],
+  vilao: [PITCH(.55, .95, .78), MIXP(.25, 1, 'Eco da sala'), DRIVE(20, 5)],
+  ovelha: [{ k: 'speed', n: 'Velocidade do tremido', min: 2, max: 14, step: .1, def: 7, fmt: v => v.toFixed(1) + ' Hz' }, { k: 'depth', n: 'Intensidade', min: 0, max: .006, step: .0002, def: .0025, fmt: v => Math.round(v / .006 * 100) + '%' }],
   grave: [PITCH(.4, .98, .72)], fina: [PITCH(1.05, 2.2, 1.55)],
   monstro: [PITCH(.35, .85, .55), DRIVE(20, 4), { k: 'bass', n: 'Peso no grave', min: 0, max: 15, step: 1, def: 6, fmt: v => '+' + v + ' dB' }],
   crianca: [PITCH(1.05, 1.9, 1.32)],
@@ -770,6 +853,7 @@ let fxNames = store.get('fxNames', {});
 const fxName = f => fxNames[f.id] || f.name;
 const P = (id, k) => { const v = fxp[id] && fxp[id][k]; if (typeof v === 'number') return v; const d = (FXP[id] || []).concat(VOLP).find(x => x.k === k); return d ? d.def : 1; };
 function setFx(id, keepEditor) {
+  if (!FX.some(f => f.id === id)) id = 'obs';
   vs.fx = id; store.set('voice', vs); renderFxButtons(); if (!keepEditor) renderFxEditor(); broadcastSoon();
   if (!ctx) return;
   try { N.fxIn.disconnect(); } catch (e) {}
@@ -818,6 +902,34 @@ function setFx(id, keepEditor) {
     const lo = pitch(q('pitch')), mid = pitch(Math.min(.95, q('pitch') * 1.7)); I.connect(lo); I.connect(mid);
     const mix = gain(1); lo.connect(gain(.9)).connect(mix); mid.connect(gain(.5)).connect(mix);
     mix.connect(shaper(3)).connect(O); const [cv, w] = reverb(2.5, q('mix')); mix.connect(cv); w.connect(O);
+  } else if (id === 'mulher') {
+    I.connect(filt('highpass', q('body'), .7)).connect(pitch(q('pitch'))).connect(filt('peaking', 350, 1, -4)).connect(filt('highshelf', 2800, null, q('bright'))).connect(gain(1.15)).connect(O);
+  } else if (id === 'gigante') {
+    const p = pitch(q('pitch')); I.connect(p).connect(filt('lowshelf', 180, null, 6)).connect(O); const [cv, w] = reverb(q('size'), q('mix')); p.connect(cv); w.connect(O);
+  } else if (id === 'anjo') {
+    const p = pitch(q('pitch')); I.connect(p).connect(filt('highshelf', 3000, null, 4)).connect(gain(.8)).connect(O);
+    [[.022, .7], [.031, 1.1]].forEach(([dt, f]) => { const d = mk(ctx.createDelay(.1)); d.delayTime.value = dt; lfo(f, .004, d.delayTime); p.connect(d).connect(gain(.45)).connect(O); });
+    const [cv, w] = reverb(q('size'), q('mix')); p.connect(cv); w.connect(O);
+  } else if (id === 'zumbi') {
+    const p = pitch(q('pitch')); const tg = gain(.6); lfo(q('trem') || .01, .4, tg.gain);
+    I.connect(p).connect(shaper(q('drive'))).connect(filt('lowpass', 2600, .8)).connect(tg).connect(gain(.6)).connect(O);
+  } else if (id === 'agua') {
+    const d = mk(ctx.createDelay(.1)); d.delayTime.value = .02; lfo(2.2, q('wob'), d.delayTime);
+    I.connect(filt('lowpass', q('cut'), 4)).connect(d).connect(gain(1.4)).connect(O); const [cv, w] = reverb(1.2, .5); d.connect(cv); w.connect(filt('lowpass', 600)).connect(O);
+  } else if (id === 'sussurro') {
+    const env = shaper(0); env.curve = absCurve(); const sm = filt('lowpass', 25, .5); const amt = gain(q('air'));
+    I.connect(env).connect(sm).connect(amt);
+    const nz = mk(ctx.createBufferSource()); nz.buffer = noiseBuf(ctx); nz.loop = true; nz.start();
+    const vca = gain(0); amt.connect(vca.gain); nz.connect(filt('bandpass', 3000, .6)).connect(vca).connect(O);
+    I.connect(filt('highpass', 2000, .7)).connect(gain(q('dry') * 3)).connect(O); I.connect(gain(q('dry'))).connect(O);
+  } else if (id === 'astronauta') {
+    I.connect(filt('highpass', 350, .8)).connect(filt('lowpass', 3500, .8)).connect(shaper(q('drive'))).connect(gain(.7)).connect(O);
+    const d = mk(ctx.createDelay(.1)); d.delayTime.value = .012; const fb = gain(.5); I.connect(d); d.connect(fb).connect(d); d.connect(gain(q('mix'))).connect(O);
+  } else if (id === 'vilao') {
+    const p = pitch(q('pitch')); I.connect(p).connect(filt('lowshelf', 160, null, 5)).connect(filt('lowpass', 3200, .7)).connect(shaper(q('drive'))).connect(O);
+    const [cv, w] = reverb(.9, q('mix')); p.connect(cv); w.connect(O);
+  } else if (id === 'ovelha') {
+    const d = mk(ctx.createDelay(.1)); d.delayTime.value = .01; lfo(q('speed'), q('depth'), d.delayTime); I.connect(d).connect(O);
   } else if (id === 'robo') {
     const rg = gain(0); lfo(q('freq'), 1, rg.gain);
     const d = mk(ctx.createDelay(.1)); d.delayTime.value = .011; const fb = gain(q('metal'));
@@ -896,7 +1008,7 @@ function micOff(quiet) {
 }
 function micMsg(t, warn) { const m = $('#micMsg'); m.textContent = t; m.classList.toggle('warn', !!warn); }
 function updateMicBtn() { const b = $('#micBtn'); b.textContent = micStream ? 'Desligar microfone' : 'Ligar microfone'; b.className = 'btn ' + (micStream ? 'live' : 'primary'); }
-$('#micBtn').onclick = () => micStream ? micOff() : (vs.fx === 'obs' ? chooseFx('normal') : micOn());
+$('#micBtn').onclick = () => { if (micStream) { micOff(); return; } if (vs.fx === 'obs') { toast('Escolha um efeito de voz: a Mesa liga o microfone sozinha'); $('#fxGrid').scrollIntoView({ behavior: 'smooth', block: 'center' }); return; } micOn(); };
 const nsBox = $('#ns'); nsBox.checked = vs.ns;
 nsBox.onchange = async () => { vs.ns = nsBox.checked; store.set('voice', vs); if (micStream) { micOff(); await micOn(); } };
 
@@ -1005,7 +1117,8 @@ let binds = store.get('binds', null);
 const bindsFresh = !binds;
 if (!binds) binds = { stop: 'Escape', mute: 'Space' };
 const keyLabels = store.get('keyLabels', {});
-FX.forEach((f, i) => { if (binds['fx:' + f.id] === undefined) { const k = FX_KEYS[i]; binds['fx:' + f.id] = k && !Object.values(binds).includes(k) ? k : null; } });
+delete binds['fx:normal'];
+FX.forEach(f => { if (binds['fx:' + f.id] === undefined) { const used = new Set(Object.values(binds)); binds['fx:' + f.id] = FX_KEYS.find(k => !used.has(k)) || null; } });
 const saveBinds = () => { store.set('binds', binds); store.set('keyLabels', keyLabels); };
 function codeLabel(code) {
   if (!code) return '';
