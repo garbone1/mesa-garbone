@@ -742,13 +742,29 @@ if (!store.get('fxv2', false)) { vs.fx = 'obs'; store.set('fxv2', true); }
 if (vs.fx === 'normal') vs.fx = 'obs';
 const gainOf = c => c.m ? 0 : Math.pow(c.v / 100, 2);
 
-const PITCH_SRC = `class P extends AudioWorkletProcessor{static get parameterDescriptors(){return[{name:'ratio',defaultValue:1,minValue:.25,maxValue:4}]}
-constructor(){super();this.N=8192;this.b=new Float32Array(this.N);this.w=0;this.p=0;this.win=2048}
-rd(d){let r=this.w-d;while(r<0)r+=this.N;const i=Math.floor(r),f=r-i;return this.b[i%this.N]*(1-f)+this.b[(i+1)%this.N]*f}
-process(ins,outs,pr){const inp=ins[0]&&ins[0][0],o=outs[0];if(!o||!o[0])return true;const ra=pr.ratio[0],W=this.win,n=o[0].length;
-for(let i=0;i<n;i++){this.b[this.w]=inp?inp[i]:0;this.p+=(1-ra)/W;this.p-=Math.floor(this.p);const p2=(this.p+.5)%1;
-const g1=Math.sin(Math.PI*this.p)**2,g2=Math.sin(Math.PI*p2)**2;const s=this.rd(this.p*W+1)*g1+this.rd(p2*W+1)*g2;
-for(let c=0;c<o.length;c++)o[c][i]=s;this.w=(this.w+1)%this.N}return true}}registerProcessor('pitch-shift',P);`;
+const PITCH_SRC = `class P extends AudioWorkletProcessor{static get parameterDescriptors(){return[{name:'ratio',defaultValue:1,minValue:.25,maxValue:4},{name:'formant',defaultValue:1,minValue:.4,maxValue:2.5}]}
+constructor(){super();const sr=sampleRate;this.sr=sr;this.N=32768;this.M=32767;this.ib=new Float32Array(32768);this.ob=new Float32Array(32768);this.n=0;
+this.minT=Math.floor(sr/500);this.maxT=Math.ceil(sr/75);this.D=Math.ceil(sr*.034);this.T=sr*.006;this.voiced=false;this.ts=this.D+this.maxT;this.ta=0;
+this.dec=Math.max(1,Math.round(sr/12000));this.db=new Float32Array(1024);this.dw=0;this.acc=0;this.ac=0;this.cnt=0;this.r=new Float32Array(400)}
+detect(){const dec=this.dec,db=this.db,W=300,mn=Math.max(2,Math.floor(this.minT/dec)),mx=Math.ceil(this.maxT/dec),end=this.dw+4095,r=this.r;
+let e0=0;for(let i=0;i<W;i++){const v=db[(end-i)&1023];e0+=v*v}if(e0<2e-6*W){this.voiced=false;return}
+let best=0,bl=0;for(let L=mn;L<=mx;L++){let s=0,e1=0;for(let i=0;i<W;i++){const a=db[(end-i)&1023],b=db[(end-i-L)&1023];s+=a*b;e1+=b*b}const q=s/Math.sqrt(e0*e1+1e-12);r[L]=q;if(q>best){best=q;bl=L}}
+if(best<.55){this.voiced=false;return}
+for(let L=mn+1;L<mx;L++){if(r[L]>=.85*best&&r[L]>=r[L-1]&&r[L]>=r[L+1]){bl=L;break}}
+let lag=bl;if(bl>mn&&bl<mx){const a=r[bl-1],b=r[bl],c=r[bl+1],d=a-2*b+c;if(d<0)lag=bl+.5*(a-c)/d}
+const T=lag*dec;this.T=this.voiced&&Math.abs(T-this.T)<this.T*.25?this.T*.3+T*.7:T;this.voiced=true}
+grain(n,T,S,L,fo){const ib=this.ib,ob=this.ob,M=this.M,target=this.ts-this.D;let ta;
+if(this.voiced){if(Math.abs(this.ta-target)>2*T)this.ta=target;while(this.ta+T/2<target){this.ta+=T;const R=Math.round(T*.12),c0=Math.round(this.ta);let bi=c0,bv=-1e9;for(let j=-R;j<=R;j++){const v=ib[(c0+j)&M];if(v>bv){bv=v;bi=c0+j}}this.ta=bi}ta=this.ta}else{ta=target;this.ta=target}
+const reach=L*fo+2;if(ta+reach>n-1)ta=n-1-reach;
+const g=this.voiced?Math.sqrt(S/L):Math.min(1,S/L),c=Math.round(this.ts),Li=Math.floor(L);
+for(let k=-Li;k<=Li;k++){const p=c+k;if(p<n)continue;const w=.5+.5*Math.cos(Math.PI*k/L),s=ta+k*fo,i0=Math.floor(s),f=s-i0,a=ib[i0&M],b=ib[(i0+1)&M];ob[p&M]+=(a+(b-a)*f)*w*g}
+this.ts+=S}
+process(ins,outs,pr){const o=outs[0];if(!o||!o[0])return true;const x=ins[0]&&ins[0][0],ra=pr.ratio[0],fo=pr.formant[0],M=this.M,ib=this.ib,ob=this.ob,len=o[0].length;
+for(let i=0;i<len;i++){const v=x?x[i]:0,n=this.n;ib[n&M]=v;this.acc+=v;
+if(++this.ac>=this.dec){this.db[this.dw]=this.acc/this.dec;this.dw=(this.dw+1)&1023;this.acc=0;this.ac=0;if(++this.cnt>=64){this.cnt=0;this.detect()}}
+for(;;){const T=this.voiced?this.T:this.sr*.006,S=T/ra,L=T;if(this.ts-L>n)break;this.grain(n,T,S,L,fo)}
+const y=ob[n&M];ob[n&M]=0;for(let c=0;c<o.length;c++)o[c][i]=y;this.n=n+1}return true}}
+registerProcessor('pitch-shift',P);`;
 
 function analyser() { const a = ctx.createAnalyser(); a.fftSize = 1024; return a; }
 function ensureCtx() {
@@ -803,6 +819,15 @@ const FX = [
 ];
 let fxNodes = [];
 function impulse(sec = 2.6) { const len = ctx.sampleRate * sec, b = ctx.createBuffer(2, len, ctx.sampleRate); for (let c = 0; c < 2; c++) { const d = b.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3); } return b; }
+function bubbleBuf() {
+  const sr = ctx.sampleRate; if (bubbleBuf.b && bubbleBuf.sr === sr) return bubbleBuf.b;
+  const len = sr * 4, b = ctx.createBuffer(1, len, sr), d = b.getChannelData(0);
+  for (let k = 0; k < 60; k++) {
+    const dur = .03 + Math.random() * .07, n = Math.floor(dur * sr), t0 = Math.floor(Math.random() * (len - n - 1)), f0 = 250 + Math.random() * 1100, a = .15 + Math.random() * .35; let ph = 0;
+    for (let i = 0; i < n; i++) { const t = i / sr; ph += 2 * Math.PI * f0 * (1 + 2.5 * t / dur) / sr; d[t0 + i] += a * Math.sin(ph) * Math.exp(-t / (dur * .35)) * Math.min(1, i / 30); }
+  }
+  bubbleBuf.b = b; bubbleBuf.sr = sr; return b;
+}
 function absCurve() { const n = 1024, cv = new Float32Array(n); for (let i = 0; i < n; i++) cv[i] = Math.abs(i * 2 / n - 1); return cv; }
 function shaperCurve(k) { const n = 1024, cv = new Float32Array(n); for (let i = 0; i < n; i++) { const x = i * 2 / n - 1; cv[i] = (1 + k) * x / (1 + k * Math.abs(x)); } return cv; }
 // mudança de tom sem AudioWorklet (funciona em navegadores que bloqueiam o worklet)
@@ -822,33 +847,36 @@ function spPitch(ratio) {
 const PITCH = (min, max, def) => ({ k: 'pitch', n: 'Tom', min, max, step: .01, def, fmt: v => v.toFixed(2) + '×' });
 const MIXP = (def, max = 1.5, n = 'Quantidade de efeito') => ({ k: 'mix', n, min: 0, max, step: .01, def, fmt: v => Math.round(v * 100) + '%' });
 const SIZE = (min, max, def) => ({ k: 'size', n: 'Tamanho do lugar', min, max, step: .1, def, fmt: v => v.toFixed(1) + ' s' });
+const TIMBRE = (min, max, def) => ({ k: 'formant', n: 'Timbre (garganta)', min, max, step: .01, def, fmt: v => v.toFixed(2) + '×' });
+const TREM = (def, n = 'Rosnado') => ({ k: 'trem', n, min: 0, max: 40, step: 1, def, fmt: v => v ? v + ' Hz' : 'não' });
 const DRIVE = (max, def) => ({ k: 'drive', n: 'Distorção', min: 0, max, step: 1, def, fmt: v => Math.round(v) });
 const FXP = {
-  mulher: [PITCH(1.15, 1.8, 1.4), { k: 'body', n: 'Tirar o grave', min: 80, max: 400, step: 5, def: 190, fmt: v => v + ' Hz' }, { k: 'bright', n: 'Brilho', min: 0, max: 12, step: .5, def: 5, fmt: v => '+' + v + ' dB' }],
-  gigante: [PITCH(.3, .7, .45), SIZE(1, 8, 4.5), MIXP(.6)],
-  anjo: [PITCH(1, 1.6, 1.2), SIZE(2, 8, 5), MIXP(.8, 1.5)],
-  zumbi: [PITCH(.5, .95, .72), DRIVE(60, 18), { k: 'trem', n: 'Rosnado', min: 0, max: 40, step: 1, def: 22, fmt: v => v + ' Hz' }],
-  agua: [{ k: 'cut', n: 'Fundura', min: 200, max: 1200, step: 10, def: 450, fmt: v => v + ' Hz' }, { k: 'wob', n: 'Ondulação', min: 0, max: .01, step: .0005, def: .004, fmt: v => Math.round(v / .01 * 100) + '%' }],
+  mulher: [PITCH(1.2, 2, 1.6), TIMBRE(1, 1.4, 1.17), { k: 'body', n: 'Tirar o grave', min: 60, max: 300, step: 5, def: 140, fmt: v => v + ' Hz' }, { k: 'bright', n: 'Brilho', min: 0, max: 10, step: .5, def: 3, fmt: v => '+' + v + ' dB' }],
+  gigante: [PITCH(.3, .7, .5), TIMBRE(.5, .9, .65), SIZE(1, 8, 4.5), MIXP(.6)],
+  anjo: [PITCH(.9, 1.5, 1.12), TIMBRE(.9, 1.3, 1.08), SIZE(2, 8, 5), MIXP(.8, 1.5)],
+  zumbi: [PITCH(.6, 1, .82), TIMBRE(.65, 1, .78), DRIVE(60, 18), TREM(9, 'Engasgo')],
+  agua: [{ k: 'cut', n: 'Fundura', min: 200, max: 1200, step: 10, def: 450, fmt: v => v + ' Hz' }, { k: 'bub', n: 'Bolhas', min: 0, max: 2, step: .05, def: 1, fmt: v => Math.round(v * 100) + '%' }, { k: 'wob', n: 'Ondulação', min: 0, max: .01, step: .0005, def: .004, fmt: v => Math.round(v / .01 * 100) + '%' }],
   sussurro: [{ k: 'air', n: 'Quantidade de ar', min: .5, max: 6, step: .1, def: 2.5, fmt: v => Math.round(v / 6 * 100) + '%' }, { k: 'dry', n: 'Voz original', min: 0, max: .6, step: .01, def: .12, fmt: v => Math.round(v * 100) + '%' }],
   astronauta: [MIXP(.35, 1, 'Eco do capacete'), DRIVE(30, 8)],
-  vilao: [PITCH(.55, .95, .78), MIXP(.25, 1, 'Eco da sala'), DRIVE(20, 5)],
+  vilao: [PITCH(.6, .95, .8), TIMBRE(.75, 1, .85), { k: 'mask', n: 'Máscara (metal)', min: 0, max: .85, step: .01, def: .55, fmt: v => Math.round(v * 100) + '%' }, MIXP(.2, 1, 'Eco da sala')],
   ovelha: [{ k: 'speed', n: 'Velocidade do tremido', min: 2, max: 14, step: .1, def: 7, fmt: v => v.toFixed(1) + ' Hz' }, { k: 'depth', n: 'Intensidade', min: 0, max: .006, step: .0002, def: .0025, fmt: v => Math.round(v / .006 * 100) + '%' }],
-  grave: [PITCH(.4, .98, .72)], fina: [PITCH(1.05, 2.2, 1.55)],
-  monstro: [PITCH(.35, .85, .55), DRIVE(20, 4), { k: 'bass', n: 'Peso no grave', min: 0, max: 15, step: 1, def: 6, fmt: v => '+' + v + ' dB' }],
-  crianca: [PITCH(1.05, 1.9, 1.32)],
-  alien: [PITCH(.7, 1.8, 1.2), { k: 'ring', n: 'Zumbido', min: 30, max: 900, step: 1, def: 220, fmt: v => v + ' Hz' }, { k: 'wob', n: 'Ondulação', min: 0, max: 15, step: .1, def: 6, fmt: v => v.toFixed(1) + ' Hz' }],
+  grave: [PITCH(.5, .98, .75), TIMBRE(.7, 1, .88)], fina: [PITCH(1.3, 2.4, 1.8), TIMBRE(1.2, 2, 1.6)],
+  monstro: [PITCH(.4, .85, .6), TIMBRE(.55, .9, .72), DRIVE(20, 6), TREM(28)],
+  crianca: [PITCH(1.1, 1.9, 1.45), TIMBRE(1.05, 1.5, 1.25)],
+  alien: [PITCH(.7, 1.8, 1.25), TIMBRE(.7, 1.6, 1.35), { k: 'ring', n: 'Zumbido', min: 30, max: 900, step: 1, def: 220, fmt: v => v + ' Hz' }, { k: 'wob', n: 'Ondulação', min: 0, max: 15, step: .1, def: 6, fmt: v => v.toFixed(1) + ' Hz' }],
   robo: [{ k: 'freq', n: 'Frequência do robô', min: 15, max: 220, step: 1, def: 52, fmt: v => v + ' Hz' }, { k: 'metal', n: 'Metálico', min: 0, max: .9, step: .01, def: .55, fmt: v => Math.round(v * 100) + '%' }],
   radio: [DRIVE(100, 30), { k: 'band', n: 'Corte de grave', min: 150, max: 1500, step: 10, def: 550, fmt: v => v + ' Hz' }],
   telefone: [DRIVE(40, 6)], megafone: [DRIVE(200, 60)],
   eco: [{ k: 'time', n: 'Tempo do eco', min: .05, max: 1, step: .01, def: .32, fmt: v => v.toFixed(2) + ' s' }, { k: 'fb', n: 'Repetições', min: 0, max: .85, step: .01, def: .42, fmt: v => Math.round(v * 100) + '%' }, MIXP(.55)],
   caverna: [SIZE(.5, 6, 2.6), MIXP(.7)], estadio: [SIZE(1, 8, 4), MIXP(.55)], banheiro: [SIZE(.2, 2, .7), MIXP(.9)],
   bebado: [{ k: 'speed', n: 'Velocidade da tontura', min: .2, max: 4, step: .05, def: 1.3, fmt: v => v.toFixed(2) + ' Hz' }, { k: 'depth', n: 'Intensidade', min: 0, max: .03, step: .001, def: .012, fmt: v => Math.round(v / .03 * 100) + '%' }],
-  fantasma: [PITCH(.8, 1.5, 1.08), MIXP(1.1, 2)], distorcido: [DRIVE(400, 150)],
+  fantasma: [PITCH(.8, 1.3, 1), { k: 'air', n: 'Sopro', min: 0, max: 5, step: .1, def: 2.5, fmt: v => Math.round(v / 5 * 100) + '%' }, MIXP(1.1, 2)], distorcido: [DRIVE(400, 150)],
   coro: [{ k: 'depth', n: 'Variação entre as vozes', min: 0, max: .012, step: .0005, def: .005, fmt: v => Math.round(v / .012 * 100) + '%' }, MIXP(.5, 1, 'Volume das outras vozes')],
   demonio: [PITCH(.35, .8, .5), MIXP(.5, 1.2, 'Eco do inferno')],
 };
 const VOLP = { k: 'vol', n: 'Volume com o efeito', min: 0, max: 2, step: .01, def: 1, fmt: v => Math.round(v * 100) + '%' };
 let fxp = store.get('fxp', {});
+if (!store.get('fxv3', false)) { ['mulher', 'grave', 'fina', 'monstro', 'crianca', 'alien', 'gigante', 'anjo', 'zumbi', 'vilao', 'fantasma', 'demonio', 'agua'].forEach(k => delete fxp[k]); store.set('fxp', fxp); store.set('fxv3', true); }
 let fxNames = store.get('fxNames', {});
 const fxName = f => fxNames[f.id] || f.name;
 const P = (id, k) => { const v = fxp[id] && fxp[id][k]; if (typeof v === 'number') return v; const d = (FXP[id] || []).concat(VOLP).find(x => x.k === k); return d ? d.def : 1; };
@@ -859,7 +887,7 @@ function setFx(id, keepEditor) {
   try { N.fxIn.disconnect(); } catch (e) {}
   fxNodes.forEach(n => { try { n.disconnect(); } catch (e) {} try { n.stop && n.stop(); } catch (e) {} }); fxNodes = [];
   const mk = n => (fxNodes.push(n), n); const I = N.fxIn;
-  const pitch = ratio => { let p = null; if (pitchOK) { try { p = new AudioWorkletNode(ctx, 'pitch-shift', { outputChannelCount: [1] }); p.parameters.get('ratio').value = ratio; } catch (e) { p = null; } } return mk(p || spPitch(ratio)); };
+  const pitch = (ratio, fo = 1) => { let p = null; if (pitchOK) { try { p = new AudioWorkletNode(ctx, 'pitch-shift', { outputChannelCount: [1] }); p.parameters.get('ratio').value = ratio; p.parameters.get('formant').value = fo; } catch (e) { p = null; } } return mk(p || spPitch(ratio)); };
   const gain = v => { const g = mk(ctx.createGain()); g.gain.value = v; return g; };
   const O = gain(id === 'obs' ? 1 : P(id, 'vol')); O.connect(N.fxOut);
   const filt = (type, f, q, gn) => { const b = mk(ctx.createBiquadFilter()); b.type = type; b.frequency.value = f; if (q != null) b.Q.value = q; if (gn != null) b.gain.value = gn; return b; };
@@ -868,14 +896,20 @@ function setFx(id, keepEditor) {
   const lfo = (freq, depth, target) => { const o = mk(ctx.createOscillator()); o.frequency.value = freq; const g = gain(depth); o.connect(g).connect(target); o.start(); return o; };
   const q = k => P(id, k);
   vozRoute();
+  const whisper = (src, air) => {
+    const env = shaper(0); env.curve = absCurve(); const amt = gain(air); src.connect(env).connect(filt('lowpass', 25, .5)).connect(amt);
+    const nz = mk(ctx.createBufferSource()); nz.buffer = noiseBuf(ctx); nz.loop = true; nz.start();
+    const vca = gain(0); amt.connect(vca.gain); nz.connect(filt('bandpass', 3000, .6)).connect(vca); return vca;
+  };
+  const growl = (src, hz, depth) => { if (!hz) return src; const tg = gain(1 - depth); lfo(hz, depth, tg.gain); src.connect(tg); return tg; };
   if (id === 'grave' || id === 'fina') {
-    I.connect(pitch(q('pitch'))).connect(O);
+    I.connect(pitch(q('pitch'), q('formant'))).connect(O);
   } else if (id === 'monstro') {
-    const p = pitch(q('pitch')); I.connect(p).connect(filt('lowshelf', 200, null, q('bass'))).connect(shaper(q('drive'))).connect(gain(.8)).connect(O);
+    const p = pitch(q('pitch'), q('formant')); I.connect(p); growl(p.connect(filt('lowshelf', 200, null, 6)).connect(shaper(q('drive'))), q('trem'), .45).connect(gain(.8)).connect(O);
   } else if (id === 'crianca') {
-    I.connect(pitch(q('pitch'))).connect(filt('highshelf', 3000, null, 4)).connect(O);
+    I.connect(pitch(q('pitch'), q('formant'))).connect(filt('highshelf', 3000, null, 3)).connect(O);
   } else if (id === 'alien') {
-    const p = pitch(q('pitch')); I.connect(p); const rg = gain(0); lfo(q('ring'), 1, rg.gain); p.connect(rg).connect(O); p.connect(gain(.5)).connect(O);
+    const p = pitch(q('pitch'), q('formant')); I.connect(p); const rg = gain(0); lfo(q('ring'), 1, rg.gain); p.connect(rg).connect(O); p.connect(gain(.5)).connect(O);
     const d = mk(ctx.createDelay(.1)); d.delayTime.value = .02; lfo(q('wob') || .01, .006, d.delayTime); p.connect(d).connect(gain(.6)).connect(O);
   } else if (id === 'telefone') {
     I.connect(filt('highpass', 400, .7)).connect(filt('lowpass', 3400, .7)).connect(shaper(q('drive'))).connect(gain(.8)).connect(O);
@@ -889,8 +923,9 @@ function setFx(id, keepEditor) {
   } else if (id === 'bebado') {
     const d = mk(ctx.createDelay(.2)); d.delayTime.value = .04; lfo(q('speed'), q('depth'), d.delayTime); lfo(q('speed') * 3.6, q('depth') / 4, d.delayTime); I.connect(d).connect(O);
   } else if (id === 'fantasma') {
-    const p = pitch(q('pitch')), hp = filt('highpass', 350, .7); I.connect(hp).connect(p); p.connect(gain(.35)).connect(O);
-    const [cv, w] = reverb(3.5, q('mix')); p.connect(cv); w.connect(O);
+    const p = pitch(q('pitch')), hp = filt('highpass', 450, .7); I.connect(hp).connect(p); p.connect(gain(.18)).connect(O);
+    const wh = whisper(I, q('air')); wh.connect(gain(.8)).connect(O);
+    const [cv, w] = reverb(3.5, q('mix')); p.connect(cv); wh.connect(cv); w.connect(O);
     const d = mk(ctx.createDelay(1)); d.delayTime.value = .4; const fb = gain(.45); p.connect(d); d.connect(fb).connect(d); d.connect(gain(.4)).connect(O);
   } else if (id === 'distorcido') {
     I.connect(gain(2)).connect(shaper(q('drive'))).connect(filt('lowpass', 3800, .7)).connect(gain(.35)).connect(O);
@@ -899,34 +934,35 @@ function setFx(id, keepEditor) {
     [[.018, .9, .8], [.027, 1.3, 1], [.035, .6, 1.2]].forEach(([dt, f, k]) => { const d = mk(ctx.createDelay(.1)); d.delayTime.value = dt; lfo(f, dep * k, d.delayTime); I.connect(d).connect(gain(m)).connect(O); });
     I.connect(pitch(.99)).connect(gain(m * .7)).connect(O);
   } else if (id === 'demonio') {
-    const lo = pitch(q('pitch')), mid = pitch(Math.min(.95, q('pitch') * 1.7)); I.connect(lo); I.connect(mid);
+    const lo = pitch(q('pitch'), .75), mid = pitch(1, 1); I.connect(lo); I.connect(mid);
     const mix = gain(1); lo.connect(gain(.9)).connect(mix); mid.connect(gain(.5)).connect(mix);
     mix.connect(shaper(3)).connect(O); const [cv, w] = reverb(2.5, q('mix')); mix.connect(cv); w.connect(O);
   } else if (id === 'mulher') {
-    I.connect(filt('highpass', q('body'), .7)).connect(pitch(q('pitch'))).connect(filt('peaking', 350, 1, -4)).connect(filt('highshelf', 2800, null, q('bright'))).connect(gain(1.15)).connect(O);
+    I.connect(filt('highpass', q('body'), .7)).connect(pitch(q('pitch'), q('formant'))).connect(filt('highshelf', 3200, null, q('bright'))).connect(gain(1.1)).connect(O);
   } else if (id === 'gigante') {
-    const p = pitch(q('pitch')); I.connect(p).connect(filt('lowshelf', 180, null, 6)).connect(O); const [cv, w] = reverb(q('size'), q('mix')); p.connect(cv); w.connect(O);
+    const p = pitch(q('pitch'), q('formant')); I.connect(p).connect(filt('lowshelf', 180, null, 6)).connect(O); const [cv, w] = reverb(q('size'), q('mix')); p.connect(cv); w.connect(O);
   } else if (id === 'anjo') {
-    const p = pitch(q('pitch')); I.connect(p).connect(filt('highshelf', 3000, null, 4)).connect(gain(.8)).connect(O);
+    const p = pitch(q('pitch'), q('formant')); I.connect(p).connect(filt('highshelf', 3000, null, 4)).connect(gain(.8)).connect(O);
     [[.022, .7], [.031, 1.1]].forEach(([dt, f]) => { const d = mk(ctx.createDelay(.1)); d.delayTime.value = dt; lfo(f, .004, d.delayTime); p.connect(d).connect(gain(.45)).connect(O); });
     const [cv, w] = reverb(q('size'), q('mix')); p.connect(cv); w.connect(O);
   } else if (id === 'zumbi') {
-    const p = pitch(q('pitch')); const tg = gain(.6); lfo(q('trem') || .01, .4, tg.gain);
-    I.connect(p).connect(shaper(q('drive'))).connect(filt('lowpass', 2600, .8)).connect(tg).connect(gain(.6)).connect(O);
+    const p = pitch(q('pitch'), q('formant')); I.connect(p);
+    growl(p.connect(shaper(q('drive'))).connect(filt('lowpass', 2400, .8)), q('trem'), .7).connect(gain(.6)).connect(O);
   } else if (id === 'agua') {
     const d = mk(ctx.createDelay(.1)); d.delayTime.value = .02; lfo(2.2, q('wob'), d.delayTime);
     I.connect(filt('lowpass', q('cut'), 4)).connect(d).connect(gain(1.4)).connect(O); const [cv, w] = reverb(1.2, .5); d.connect(cv); w.connect(filt('lowpass', 600)).connect(O);
+    const bub = mk(ctx.createBufferSource()); bub.buffer = bubbleBuf(); bub.loop = true; bub.start();
+    const vca = gain(q('bub') * .2); bub.connect(filt('lowpass', 2500, .7)).connect(vca).connect(O);
+    const env = shaper(0); env.curve = absCurve(); I.connect(env).connect(filt('lowpass', 20, .5)).connect(gain(q('bub') * 5)).connect(vca.gain);
   } else if (id === 'sussurro') {
-    const env = shaper(0); env.curve = absCurve(); const sm = filt('lowpass', 25, .5); const amt = gain(q('air'));
-    I.connect(env).connect(sm).connect(amt);
-    const nz = mk(ctx.createBufferSource()); nz.buffer = noiseBuf(ctx); nz.loop = true; nz.start();
-    const vca = gain(0); amt.connect(vca.gain); nz.connect(filt('bandpass', 3000, .6)).connect(vca).connect(O);
+    whisper(I, q('air')).connect(O);
     I.connect(filt('highpass', 2000, .7)).connect(gain(q('dry') * 3)).connect(O); I.connect(gain(q('dry'))).connect(O);
   } else if (id === 'astronauta') {
     I.connect(filt('highpass', 350, .8)).connect(filt('lowpass', 3500, .8)).connect(shaper(q('drive'))).connect(gain(.7)).connect(O);
     const d = mk(ctx.createDelay(.1)); d.delayTime.value = .012; const fb = gain(.5); I.connect(d); d.connect(fb).connect(d); d.connect(gain(q('mix'))).connect(O);
   } else if (id === 'vilao') {
-    const p = pitch(q('pitch')); I.connect(p).connect(filt('lowshelf', 160, null, 5)).connect(filt('lowpass', 3200, .7)).connect(shaper(q('drive'))).connect(O);
+    const p = pitch(q('pitch'), q('formant')), body = filt('lowpass', 3200, .7); I.connect(p).connect(filt('lowshelf', 160, null, 5)).connect(body).connect(shaper(4)).connect(O);
+    const d = mk(ctx.createDelay(.05)); d.delayTime.value = .0045; const fb = gain(q('mask')); body.connect(d); d.connect(fb).connect(d); d.connect(gain(.5)).connect(O);
     const [cv, w] = reverb(.9, q('mix')); p.connect(cv); w.connect(O);
   } else if (id === 'ovelha') {
     const d = mk(ctx.createDelay(.1)); d.delayTime.value = .01; lfo(q('speed'), q('depth'), d.delayTime); I.connect(d).connect(O);
